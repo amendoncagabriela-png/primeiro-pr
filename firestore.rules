@@ -3,6 +3,7 @@ rules_version = '2';
 // Regras do app Rotina BIN.
 // - admins/{celular ou e-mail}: diretoria (vê e edita todas as lojas). Cadastrado só pelo console do Firebase.
 // - acessos/{celular ou e-mail}: em qual loja a pessoa entra e com qual papel (gerente ou colaborador).
+// - pedidos/{celular ou e-mail}: pedido de acesso de quem ainda não foi cadastrado.
 // - lojas/{loja}: nome e equipe; config/rotina: rotina da loja; dias/{data}: checklist de cada dia.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -35,6 +36,15 @@ service cloud.firestore {
             && resource.data.lojaId == request.resource.data.lojaId && gerenteDe(request.resource.data.lojaId));
       allow delete: if isDir()
         || (resource.data.papel == 'colaborador' && gerenteDe(resource.data.lojaId));
+    }
+
+    // Pedido de acesso: quem entrou e ainda não tem cadastro pede; só a diretoria vê e decide.
+    match /pedidos/{t} {
+      allow read: if logado() && (t == tel() || isDir());
+      allow create, update: if logado() && t == tel()
+        && request.resource.data.keys().hasOnly(['nome', 'loja', 'funcao', 'em'])
+        && request.resource.data.nome is string && request.resource.data.nome.size() <= 60;
+      allow delete: if logado() && (t == tel() || isDir());
     }
 
     match /lojas/{l} {

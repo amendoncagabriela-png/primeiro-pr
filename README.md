@@ -35,11 +35,13 @@ O login é por e-mail (link de acesso, sem senha, qualquer provedor) ou pela con
 1. A diretoria entra com o e-mail, cria as lojas e, na aba **Equipe** de cada loja, cadastra o gerente com nome, e-mail e papel *Gerente*.
 2. O gerente entra com o e-mail dele e cadastra os colaboradores da loja (o e-mail é opcional: sem ele, a pessoa recebe tarefas, mas não entra no app).
 3. Cada pessoa abre o endereço do app, digita o e-mail e toca no link que recebe (no mesmo aparelho), ou entra com a conta Google.
+4. Quem entra com um e-mail ainda não cadastrado preenche nome, loja e função e envia um **pedido de acesso**. A diretoria vê os pedidos na tela **Lojas BIN**, escolhe a loja e o papel e libera (ou recusa). A pessoa entra na loja assim que for liberada.
 
 ## Estrutura dos dados
 
 - `admins/{celular ou e-mail}`: diretoria (cadastrada só pelo console).
 - `acessos/{celular ou e-mail}`: loja e papel de cada pessoa que entra no app.
+- `pedidos/{celular ou e-mail}`: pedidos de acesso aguardando a diretoria.
 - `lojas/{loja}`: nome e equipe da loja.
 - `lojas/{loja}/config/rotina`: rotinas que se repetem.
 - `lojas/{loja}/dias/{AAAA-MM-DD}`: checklist de cada dia.
