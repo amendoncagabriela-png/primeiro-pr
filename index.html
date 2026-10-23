@@ -231,11 +231,15 @@ dialog.sheet::backdrop{background:rgb(10 14 22 / .5)}
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getAuth,onAuthStateChanged,RecaptchaVerifier,signInWithPhoneNumber,signOut,GoogleAuthProvider,signInWithPopup} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getAuth,onAuthStateChanged,RecaptchaVerifier,signInWithPhoneNumber,signOut,GoogleAuthProvider,signInWithPopup,sendSignInLinkToEmail,isSignInWithEmailLink,signInWithEmailLink} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,onSnapshot,collection,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {firebaseConfig} from "./firebase-config.js";
 (function(){
 "use strict";
+
+/* Login por SMS: o código continua no app, mas fica escondido. Mude para true para mostrar de novo. */
+const MOSTRAR_SMS=false;
+const LOGIN_INICIAL=()=>({etapa:"email",email:"",tel:"",busy:false});
 
 /* ---------- conteúdo de referência: treinamento Mão na Massa (03/09/2026) ---------- */
 const MOMENTOS=[["abertura","Abertura da loja"],["expediente","Durante o expediente"],["fechamento","Fechamento"],["dia","Tarefas do dia"]];
@@ -304,7 +308,7 @@ const fmtHora=iso=>{try{return new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",m
 const nowHM=()=>{const d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes())};
 
 /* ---------- estado ---------- */
-const S={db:null,auth:"loading",tel:"",isDir:false,acesso:null,lojaId:"",lojas:null,login:{etapa:"tel",tel:"",busy:false},
+const S={db:null,auth:"loading",tel:"",isDir:false,acesso:null,lojaId:"",lojas:null,login:LOGIN_INICIAL(),
  loja:null,lojaOk:false,rotina:null,rotinaOk:false,
  dk:today(),day:null,dayOk:false,dayExists:false,
  tab:"hoje",filtro:"minhas",busca:"",pessoa:"",creating:{},ind:null,indLoading:false,names:{}};
@@ -605,11 +609,11 @@ function diasTxt(d){d=(d||[]).slice().sort();const s=d.join();
 function viewLoja(){
   const p=papel();
   let h='<div class="wrap">';
-  h+='<section class="sec"><h2>Equipe</h2><p class="hint">Cadastre quem trabalha na loja para direcionar tarefas. A pessoa não precisa de celular cadastrado para receber tarefas; o acesso ao app pode ser liberado depois. Também dá para cadastrar direto ao criar uma tarefa, em “Quem fará”.</p>';
+  h+='<section class="sec"><h2>Equipe</h2><p class="hint">Cadastre quem trabalha na loja para direcionar tarefas. A pessoa não precisa de e-mail cadastrado para receber tarefas; o acesso ao app pode ser liberado depois. Também dá para cadastrar direto ao criar uma tarefa, em “Quem fará”.</p>';
   const ms=membros().sort((a,b)=>(a.papel==="gerente"?0:1)-(b.papel==="gerente"?0:1)||a.nome.localeCompare(b.nome));
-  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(idsDe(m).length?idsDe(m).map(i=>'<span class="pill ok">Entra com '+esc(fmtId(i))+"</span>").join(""):'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e celular ou e-mail Google.</div>';
+  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(idsDe(m).length?idsDe(m).map(i=>'<span class="pill ok">Entra com '+esc(fmtId(i))+"</span>").join(""):'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e e-mail.</div>';
   h+='<button class="btn primary" data-act="novoMembro">'+I.plus+"Cadastrar pessoa</button></section>";
-  h+='<section class="sec"><h2>Como dar acesso</h2><div class="card" style="display:grid;gap:8px"><div>1. Cadastre a pessoa com o <b>número de celular</b> ou o <b>e-mail da conta Google</b>.</div><div>2. Envie a ela o endereço do app.</div><div>3. Ela entra com o celular (código por SMS) ou tocando em <b>Entrar com Google</b> e já cai no checklist desta loja.</div></div>'+
+  h+='<section class="sec"><h2>Como dar acesso</h2><div class="card" style="display:grid;gap:8px"><div>1. Cadastre a pessoa com o <b>e-mail</b> dela (Gmail, Outlook, Hotmail ou outro).</div><div>2. Envie a ela o endereço do app.</div><div>3. Ela digita o e-mail, recebe um link de acesso e já entra no checklist desta loja.</div></div>'+
    '<p class="hint">Cada pessoa só enxerga a loja em que foi cadastrada.'+(p==="gerente"?" Apenas a diretoria pode cadastrar ou alterar gerentes.":"")+"</p></section>";
   if(p==="diretoria"||p==="gerente"){
     h+='<section class="sec"><h2>Unidade</h2><form class="card" data-form="nomeLoja" style="display:grid;gap:10px"><div class="field"><label for="fLoja">Nome da unidade</label><input type="text" id="fLoja" name="nome" maxlength="60" required value="'+esc(S.loja.nome||"")+'"></div><button class="btn">Salvar nome</button></form></section>';
@@ -619,10 +623,22 @@ function viewLoja(){
 
 function viewLogin(){
   const L=S.login;
-  let h='<div class="wrap"><div class="hero"><h1>Rotina BIN</h1><p>Checklist diário das lojas BIN Embalagens. Entre com o celular ou a conta Google cadastrados pelo seu gerente ou pela diretoria.</p></div>';
-  if(L.etapa==="tel")h+='<form class="card" data-form="login" style="display:grid;gap:14px"><div class="field"><label for="fTel">Celular com DDD</label><input type="tel" id="fTel" name="tel" inputmode="tel" autocomplete="tel-national" required placeholder="(11) 99999-0000" value="'+esc(L.tel?fmtTel(L.tel):"")+'"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Enviando código…":"Receber código por SMS")+"</button></form>";
-  else h+='<form class="card" data-form="codigo" style="display:grid;gap:14px"><p style="margin:0">Enviamos um código por SMS para <b>'+esc(fmtTel(L.tel))+'</b>.</p><div class="field"><label for="fCod">Código de 6 dígitos</label><input type="text" id="fCod" name="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Conferindo…":"Entrar")+'</button><button type="button" class="btn block" data-act="trocarTel">Usar outro número</button></form>';
-  if(L.etapa==="tel")h+='<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem;margin:16px 0 12px"><span style="flex:1;height:1px;background:var(--line)"></span>ou<span style="flex:1;height:1px;background:var(--line)"></span></div><button type="button" class="btn block" data-act="google"'+(L.busy?" disabled":"")+'><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.4-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1-3.7 1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8l3.6-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>Entrar com Google</button>';
+  let h='<div class="wrap"><div class="hero"><h1>Rotina BIN</h1><p>Checklist diário das lojas BIN Embalagens. Entre com o e-mail cadastrado pelo seu gerente ou pela diretoria.</p></div>';
+  const sep='<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem;margin:16px 0 12px"><span style="flex:1;height:1px;background:var(--line)"></span>ou<span style="flex:1;height:1px;background:var(--line)"></span></div>';
+  const gbtn='<button type="button" class="btn block" data-act="google"'+(L.busy?" disabled":"")+'><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.4-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1-3.7 1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8l3.6-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>Entrar com Google</button>';
+  if(L.etapa==="email"){
+    h+='<form class="card" data-form="email" style="display:grid;gap:14px"><div class="field"><label for="fEmail">Seu e-mail</label><input type="email" id="fEmail" name="email" inputmode="email" autocomplete="email" required placeholder="nome@outlook.com" value="'+esc(L.email)+'"><span class="help">Pode ser Gmail, Outlook, Hotmail ou outro. Você recebe um link para entrar, sem senha.</span></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Enviando…":"Receber link de acesso")+"</button></form>";
+    h+=sep+gbtn;
+    if(MOSTRAR_SMS)h+='<button type="button" class="btn block" data-act="loginTel" style="margin-top:8px">Entrar com celular (SMS)</button>';
+  }else if(L.etapa==="enviado"){
+    h+='<div class="card" style="display:grid;gap:12px"><b style="font-family:var(--f-display);font-size:1.15rem">Confira seu e-mail</b><p style="margin:0">Enviamos um link de acesso para <b>'+esc(L.email)+'</b>. Abra a mensagem <b>neste mesmo aparelho</b> e toque no link para entrar.</p><p class="help" style="margin:0;font-size:.85rem;color:var(--muted)">Não chegou em 2 minutos? Procure na caixa de spam ou lixo eletrônico. O remetente é noreply@rotina-lojas.firebaseapp.com.</p><button type="button" class="btn block" data-act="reenviarLink">Enviar de novo</button><button type="button" class="btn block" data-act="trocarEmail">Usar outro e-mail</button></div>';
+  }else if(L.etapa==="confirmar"){
+    h+='<form class="card" data-form="confirmarEmail" style="display:grid;gap:14px"><p style="margin:0">Para concluir a entrada, confirme o e-mail em que você recebeu o link.</p><div class="field"><label for="fEmailConf">Seu e-mail</label><input type="email" id="fEmailConf" name="email" inputmode="email" autocomplete="email" required></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Entrando…":"Entrar")+"</button></form>";
+  }else if(L.etapa==="tel"){
+    h+='<form class="card" data-form="login" style="display:grid;gap:14px"><div class="field"><label for="fTel">Celular com DDD</label><input type="tel" id="fTel" name="tel" inputmode="tel" autocomplete="tel-national" required placeholder="(11) 99999-0000" value="'+esc(L.tel?fmtTel(L.tel):"")+'"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Enviando código…":"Receber código por SMS")+'</button><button type="button" class="btn block" data-act="trocarEmail">Entrar com e-mail</button></form>';
+  }else{
+    h+='<form class="card" data-form="codigo" style="display:grid;gap:14px"><p style="margin:0">Enviamos um código por SMS para <b>'+esc(fmtTel(L.tel))+'</b>.</p><div class="field"><label for="fCod">Código de 6 dígitos</label><input type="text" id="fCod" name="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Conferindo…":"Entrar")+'</button><button type="button" class="btn block" data-act="trocarTel">Usar outro número</button></form>';
+  }
   return h+'<p class="hint" style="color:var(--muted);font-size:.85rem;margin-top:14px">Você continua conectado neste aparelho até tocar em Sair.</p></div>';
 }
 function viewSemAcesso(){
@@ -733,8 +749,8 @@ function sheetMembro(k){
   if(m&&m.papel==="gerente"&&lockGerente){openSheet(m.nome,'<p class="hint">Apenas a diretoria pode alterar o cadastro de gerentes.</p>');return}
   let h='<form data-form="membro" style="display:grid;gap:14px"><div class="field"><label for="fMNome">Nome</label><input type="text" id="fMNome" name="nome" maxlength="50" required value="'+esc(m?m.nome:"")+'"></div>'+
    '<div class="field"><label for="fMFun">Função</label><input type="text" id="fMFun" name="funcao" maxlength="40" value="'+esc(m?m.funcao||"":"")+'" placeholder="Ex.: Subgerente, Caixa, Estoquista"></div>'+
-   '<div class="field"><label for="fMTel">Celular para entrar no app (opcional)</label><input type="tel" id="fMTel" name="tel" inputmode="tel" placeholder="(11) 99999-0000" value="'+esc(m&&m.tel?fmtTel(m.tel):"")+'"><span class="help">Com o celular cadastrado, a pessoa entra no app com um código enviado por SMS.</span></div>'+
-   '<div class="field"><label for="fMEmail">E-mail da conta Google (opcional)</label><input type="email" id="fMEmail" name="email" inputmode="email" autocomplete="off" placeholder="nome@gmail.com" value="'+esc(m&&m.email||"")+'"><span class="help">Com o e-mail cadastrado, a pessoa entra tocando em “Entrar com Google”, sem SMS.</span></div>';
+   (MOSTRAR_SMS||(m&&m.tel)?'<div class="field"><label for="fMTel">Celular para entrar no app (opcional)</label><input type="tel" id="fMTel" name="tel" inputmode="tel" placeholder="(11) 99999-0000" value="'+esc(m&&m.tel?fmtTel(m.tel):"")+'"><span class="help">Com o celular cadastrado, a pessoa entra no app com um código enviado por SMS.</span></div>':"")+
+   '<div class="field"><label for="fMEmail">E-mail para entrar no app (opcional)</label><input type="email" id="fMEmail" name="email" inputmode="email" autocomplete="off" placeholder="nome@outlook.com" value="'+esc(m&&m.email||"")+'"><span class="help">Pode ser Gmail, Outlook, Hotmail ou outro. A pessoa recebe um link de acesso nesse e-mail; se for uma conta Google, também pode tocar em “Entrar com Google”.</span></div>';
   if(!lockGerente)h+='<div class="field"><span class="lbl">Papel</span><div class="seg"><label><input type="radio" name="papel" value="colaborador"'+(!m||m.papel!=="gerente"?" checked":"")+'><span>Colaborador</span></label><label><input type="radio" name="papel" value="gerente"'+(m&&m.papel==="gerente"?" checked":"")+'><span>Gerente</span></label></div><span class="help">Gerente monta a rotina, direciona tarefas e vê os indicadores. Colaborador vê o checklist da loja e marca as atividades.</span></div>';
   h+='<button class="btn primary block">'+(m?"Salvar":"Cadastrar")+"</button>";
   if(idsDe(m).length)h+='<button type="button" class="btn block" data-act="desvincular">Tirar o acesso ao app</button>';
@@ -842,7 +858,10 @@ const acts={
     });
   },
   recarregar(){location.reload()},
-  trocarTel(){S.login={etapa:"tel",tel:S.login.tel,busy:false};render()},
+  trocarTel(){S.login=Object.assign(LOGIN_INICIAL(),{etapa:"tel",tel:S.login.tel});render()},
+  loginTel(){S.login=Object.assign(LOGIN_INICIAL(),{etapa:"tel"});render()},
+  trocarEmail(){S.login=Object.assign(LOGIN_INICIAL(),{email:S.login.email});render()},
+  reenviarLink(){enviarLink(S.login.email)},
   fechar(){closeSheet()}
 };
 
@@ -903,19 +922,29 @@ const forms={
       toast(novos.length?nome+" já pode entrar no app com "+novos.map(fmtId).join(" ou ")+".":"Cadastro salvo.");
     });
   },
+  email(f){
+    const email=normEmail(new FormData(f).get("email"));
+    if(!email){toast("Digite um e-mail válido.");return}
+    enviarLink(email);
+  },
+  confirmarEmail(f){
+    const email=normEmail(new FormData(f).get("email"));
+    if(!email){toast("Digite um e-mail válido.");return}
+    concluirLink(email);
+  },
   login(f){
     const tel=normTel(new FormData(f).get("tel"));
     if(!tel){toast("Digite o celular com DDD. Ex.: (11) 99999-0000");return}
-    S.login={etapa:"tel",tel,busy:true};render();
+    S.login=Object.assign(LOGIN_INICIAL(),{etapa:"tel",tel,busy:true});render();
     (async()=>{
       try{
         if(!FB.rv)FB.rv=new RecaptchaVerifier(FB.auth,"recap",{size:"invisible"});
         FB.conf=await signInWithPhoneNumber(FB.auth,tel,FB.rv);
-        S.login={etapa:"codigo",tel,busy:false};render();
+        S.login=Object.assign(LOGIN_INICIAL(),{etapa:"codigo",tel});render();
         const c=$("#fCod");if(c)c.focus();
       }catch(e){
         console.error(e);try{FB.rv&&FB.rv.clear()}catch(_){}FB.rv=null;$("#recap").innerHTML="";
-        S.login={etapa:"tel",tel,busy:false};render();toast(msgAuth(e));
+        S.login=Object.assign(LOGIN_INICIAL(),{etapa:"tel",tel});render();toast(msgAuth(e));
       }
     })();
   },
@@ -972,6 +1001,32 @@ function setDay(dk){
   },dbErr);
 }
 function dbErr(e){console.error(e);toast(e&&e.code==="permission-denied"?"Seu acesso a esta loja foi alterado. Toque no seu nome e saia, ou recarregue.":"A conexão com a loja caiu. Recarregue a página.")}
+function urlApp(){return location.origin+location.pathname}
+function enviarLink(email){
+  S.login=Object.assign(LOGIN_INICIAL(),{email,busy:true});render();
+  sendSignInLinkToEmail(FB.auth,email,{url:urlApp(),handleCodeInApp:true}).then(()=>{
+    try{localStorage.setItem("rotina-email",email)}catch(e){}
+    S.login=Object.assign(LOGIN_INICIAL(),{etapa:"enviado",email});render();
+  }).catch(e=>{
+    console.error(e);S.login=Object.assign(LOGIN_INICIAL(),{email});render();
+    const c=e&&e.code;
+    toast(c==="auth/operation-not-allowed"?"O login por e-mail ainda não foi ativado no Firebase.":c==="auth/unauthorized-continue-uri"||c==="auth/unauthorized-domain"?"Este endereço ainda não foi autorizado no Firebase.":c==="auth/quota-exceeded"?"O limite diário de e-mails foi atingido. Tente amanhã.":msgAuth(e));
+  });
+}
+function concluirLink(email){
+  S.login=Object.assign(LOGIN_INICIAL(),{etapa:"confirmar",email,busy:true});render();
+  signInWithEmailLink(FB.auth,email,location.href).then(()=>{
+    try{localStorage.removeItem("rotina-email")}catch(e){}
+    history.replaceState(null,"",urlApp());
+  }).catch(e=>{
+    console.error(e);
+    const c=e&&e.code;
+    if(c==="auth/invalid-email"){S.login=Object.assign(LOGIN_INICIAL(),{etapa:"confirmar"});render();toast("Este não é o e-mail que recebeu o link. Confira e tente de novo.");return}
+    history.replaceState(null,"",urlApp());
+    S.login=Object.assign(LOGIN_INICIAL(),{email});render();
+    toast(c==="auth/invalid-action-code"||c==="auth/expired-action-code"?"Este link já foi usado ou venceu. Peça um novo.":msgAuth(e));
+  });
+}
 function msgAuth(e){
   const c=(e&&e.code)||"";
   return({"auth/invalid-phone-number":"Número inválido. Digite o DDD e o número.","auth/too-many-requests":"Muitas tentativas. Aguarde alguns minutos e tente de novo.","auth/quota-exceeded":"O limite de SMS do dia foi atingido. Tente mais tarde.","auth/billing-not-enabled":"O envio de SMS ainda não foi ativado no Firebase (plano Blaze).","auth/unauthorized-domain":"Este endereço ainda não foi autorizado no Firebase.","auth/operation-not-allowed":"O login por telefone ainda não foi ativado no Firebase.","auth/captcha-check-failed":"A verificação de segurança falhou. Recarregue a página e tente de novo."})[c]||("Não foi possível enviar o código. "+(c?"("+c+")":""));
@@ -1006,6 +1061,7 @@ function limparSessao(){
   S.isDir=false;S.acesso=null;S.lojaId="";S.lojas=null;S.tel="";
 }
 async function aoEntrar(u){
+  S.login=LOGIN_INICIAL();
   S.auth="loading";S.tel=u.phoneNumber||(u.email&&u.emailVerified!==false?u.email.toLowerCase():"");render();
   if(!S.tel){S.auth="erro";S.erro="Esta conta não tem celular nem e-mail confirmado.";render();return}
   try{
@@ -1033,7 +1089,16 @@ function boot(){
   try{const f=localStorage.getItem("rotina-filtro");if(f)S.filtro=f}catch(e){}
   onAuthStateChanged(FB.auth,u=>{
     limparSessao();
-    if(!u){S.auth="out";S.login={etapa:"tel",tel:"",busy:false};render();return}
+    if(!u){
+      S.auth="out";
+      if(isSignInWithEmailLink(FB.auth,location.href)){
+        let em="";try{em=localStorage.getItem("rotina-email")||""}catch(e){}
+        if(em)concluirLink(em);else{S.login=Object.assign(LOGIN_INICIAL(),{etapa:"confirmar"});render()}
+        return;
+      }
+      if(!["enviado","confirmar"].includes(S.login.etapa))S.login=LOGIN_INICIAL();
+      render();return;
+    }
     aoEntrar(u);
   });
   setInterval(()=>{
