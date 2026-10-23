@@ -160,6 +160,11 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .li .s{font-size:.82rem;color:var(--muted)}
 .li svg.chev{width:18px;height:18px;color:var(--muted);flex:none}
 
+.manual{margin-top:14px;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r);background:var(--accent-soft);border:1px solid var(--accent);color:var(--ink);text-decoration:none}
+.manual>svg:first-child{width:26px;height:26px;color:var(--accent);flex:none}
+.manual span{flex:1;min-width:0;display:grid}
+.manual small{color:var(--muted);font-size:.8rem}
+.manual svg.chev{color:var(--accent);width:18px;height:18px;flex:none}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
 .kpi .v{font-family:var(--f-display);font-weight:800;font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -578,7 +583,7 @@ function viewEquipe(){
   const tot=allIt.length,ok=allIt.filter(i=>i.st==="feito").length,nao=allIt.filter(i=>i.st==="nao").length;
   const hoje=days[days.length-1].itens||[];
   const lateHoje=hoje.filter(i=>i.st!=="feito"&&i.st!=="nao"&&i.h&&i.h<nowHM()).length;
-  let h='<div class="wrap"><section class="sec"><h2>Últimos 7 dias</h2>'+
+  let h='<div class="wrap"><a class="manual" href="docs/Manual-Rotina-BIN-Gerentes.pdf" target="_blank" rel="noopener">'+I.book+'<span><b>Manual do gerente</b><small>Como usar o app, com exemplos · PDF</small></span>'+I.chev+'</a><section class="sec"><h2>Últimos 7 dias</h2>'+
    '<div class="kpis"><div class="kpi ok"><div class="v">'+(tot?Math.round(ok/tot*100):0)+'%</div><div class="l">realizado</div></div>'+
    '<div class="kpi bad"><div class="v">'+nao+'</div><div class="l">não realizadas</div></div>'+
    '<div class="kpi warn"><div class="v">'+lateHoje+'</div><div class="l">atrasadas hoje</div></div></div>';
