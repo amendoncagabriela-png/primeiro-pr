@@ -1,0 +1,49 @@
+rules_version = '2';
+
+// Regras do app Rotina BIN.
+// - admins/{celular}: diretoria (vê e edita todas as lojas). Cadastrado só pelo console do Firebase.
+// - acessos/{celular}: em qual loja a pessoa entra e com qual papel (gerente ou colaborador).
+// - lojas/{loja}: nome e equipe; config/rotina: rotina da loja; dias/{data}: checklist de cada dia.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null && request.auth.token.phone_number != null; }
+    function tel() { return request.auth.token.phone_number; }
+    function isDir() { return logado() && exists(/databases/$(database)/documents/admins/$(tel())); }
+    function temAcesso() { return logado() && exists(/databases/$(database)/documents/acessos/$(tel())); }
+    function acesso() { return get(/databases/$(database)/documents/acessos/$(tel())).data; }
+    function daLoja(l) { return isDir() || (temAcesso() && acesso().ativo != false && acesso().lojaId == l); }
+    function gerenteDe(l) { return isDir() || (temAcesso() && acesso().ativo != false && acesso().lojaId == l && acesso().papel == 'gerente'); }
+
+    match /admins/{t} {
+      allow read: if logado() && t == tel();
+      allow write: if false;
+    }
+
+    match /acessos/{t} {
+      allow read: if logado() && (t == tel() || isDir() || gerenteDe(resource.data.lojaId));
+      // O gerente só cria, altera ou remove colaboradores da própria loja.
+      allow create: if isDir()
+        || (request.resource.data.papel == 'colaborador' && gerenteDe(request.resource.data.lojaId));
+      allow update: if isDir()
+        || (resource.data.papel == 'colaborador' && request.resource.data.papel == 'colaborador'
+            && resource.data.lojaId == request.resource.data.lojaId && gerenteDe(request.resource.data.lojaId));
+      allow delete: if isDir()
+        || (resource.data.papel == 'colaborador' && gerenteDe(resource.data.lojaId));
+    }
+
+    match /lojas/{l} {
+      allow read: if daLoja(l);
+      allow create, delete: if isDir();
+      allow update: if gerenteDe(l);
+
+      match /config/{d} {
+        allow read: if daLoja(l);
+        allow write: if gerenteDe(l);
+      }
+      match /dias/{dia} {
+        allow read, write: if daLoja(l);
+      }
+    }
+  }
+}

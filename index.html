@@ -1,0 +1,1031 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1F4FD1">
+<title>Rotina BIN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+img{max-width:100%}
+/* Layout: one narrow phone column; sticky header with date, list grouped by momento of the day, bottom tab bar for managers. */
+:root{
+  --bg:#F2F3EF; --surface:#FFFFFF; --sunk:#E8EAE4; --ink:#1A2130; --muted:#5C6473; --line:#DADDD5;
+  --accent:#1F4FD1; --accent-ink:#FFFFFF; --accent-soft:#E3EAFB;
+  --kraft:#9A6A2E; --kraft-soft:#F0E5D4;
+  --ok:#1C7F46; --ok-soft:#DFF1E6; --bad:#BF3328; --bad-soft:#FAE5E2; --warn:#A35F00; --warn-soft:#FBEED7;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11141A; --surface:#1A1E26; --sunk:#151820; --ink:#E8EBF0; --muted:#9AA2B0; --line:#2A303B;
+  --accent:#7398FF; --accent-ink:#0A1022; --accent-soft:#1D2742;
+  --kraft:#D9AA6A; --kraft-soft:#2D251A;
+  --ok:#55C384; --ok-soft:#14281C; --bad:#F27A6C; --bad-soft:#341B18; --warn:#F2AA48; --warn-soft:#30230F;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11141A; --surface:#1A1E26; --sunk:#151820; --ink:#E8EBF0; --muted:#9AA2B0; --line:#2A303B;
+  --accent:#7398FF; --accent-ink:#0A1022; --accent-soft:#1D2742;
+  --kraft:#D9AA6A; --kraft-soft:#2D251A;
+  --ok:#55C384; --ok-soft:#14281C; --bad:#F27A6C; --bad-soft:#341B18; --warn:#F2AA48; --warn-soft:#30230F;
+  color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#app{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.top .wrap{padding-block:12px 10px;display:grid;gap:10px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.brand h1{margin:0;font-family:var(--f-display);font-stretch:80%;font-weight:800;font-size:1.45rem;letter-spacing:.01em;text-transform:uppercase;text-wrap:balance;line-height:1.05;min-width:0}
+.brand .role{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--kraft);background:var(--kraft-soft);padding:3px 8px;border-radius:999px;white-space:nowrap;font-weight:700}
+.datebar{display:flex;align-items:center;gap:6px}
+.datebar .d{flex:1;text-align:center;font-family:var(--f-display);font-weight:700;font-size:1.05rem}
+.datebar .d small{display:block;font-family:var(--f-body);font-weight:400;font-size:.78rem;color:var(--muted);text-transform:none}
+.iconbtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
+.iconbtn svg{width:20px;height:20px}
+.todaybtn{height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:.85rem}
+
+/* progress */
+.prog{display:grid;gap:8px;padding-block:14px 4px}
+.prog .nums{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.9rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.prog .nums b{color:var(--ink)}
+.prog .big{font-family:var(--f-display);font-weight:800;font-size:2.4rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.prog .big span{font-size:1rem;font-weight:600;color:var(--muted);margin-left:4px}
+.bar{height:10px;border-radius:999px;background:var(--sunk);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.bar .b-ok{background:var(--ok)} .bar .b-bad{background:var(--bad)}
+
+/* filters */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.9rem;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+select.chip{padding-right:10px}
+
+/* groups & tasks */
+.group{margin-top:14px}
+.group h2{margin:0 0 8px;display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:.85rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.group h2 .cnt{font-family:var(--f-body);letter-spacing:0;font-weight:400;font-variant-numeric:tabular-nums}
+.group h2::after{content:"";flex:1;height:1px;background:var(--line)}
+ul.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.task{display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:4px 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 6px 10px 10px}
+.task .check{width:40px;height:40px;border-radius:10px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;margin-top:1px}
+.task .check svg{width:22px;height:22px;opacity:0}
+.task.st-feito .check{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.task.st-feito .check svg{opacity:1}
+.task.st-nao .check{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.task.st-nao .check svg{opacity:1}
+.task .tb{min-width:0;padding-top:2px;cursor:pointer;background:none;border:0;text-align:left;padding-left:0;padding-right:0}
+.task .ttl{font-weight:700;overflow-wrap:anywhere}
+.task.st-feito .ttl{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.meta{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:5px;font-size:.8rem;color:var(--muted);align-items:center}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--ink);font-size:.78rem;line-height:1.4;white-space:nowrap}
+.pill.who{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.pill.kraft{background:var(--kraft-soft);color:var(--kraft)}
+.pill.late{background:var(--warn-soft);color:var(--warn);font-weight:700}
+.pill.bad{background:var(--bad-soft);color:var(--bad);font-weight:700}
+.pill.ok{background:var(--ok-soft);color:var(--ok);font-weight:700}
+.pill.hi{background:var(--bad-soft);color:var(--bad)}
+.ev{margin-top:5px;font-size:.82rem;color:var(--muted)}
+.ev b{color:var(--ink);font-weight:700}
+.by{margin-top:5px;font-size:.8rem;color:var(--muted)}
+.motivo{margin-top:6px;font-size:.85rem;background:var(--bad-soft);color:var(--ink);border-radius:8px;padding:6px 8px}
+.task .more{width:36px;height:40px;border:0;background:none;color:var(--muted);display:grid;place-items:center;border-radius:8px}
+.task .more svg{width:20px;height:20px}
+
+.empty{margin-top:22px;padding:22px 18px;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--muted);text-align:center;display:grid;gap:10px;justify-items:center}
+.empty b{color:var(--ink);font-family:var(--f-display);font-size:1.1rem}
+
+/* buttons */
+.btn{min-height:46px;padding:0 18px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.btn.block{width:100%}
+.btn svg{width:18px;height:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>.btn{flex:1 1 140px}
+[hidden]{display:none!important}
+.search{position:relative;margin-top:12px}
+.search input{width:100%;height:46px;border-radius:999px;border:1px solid var(--line);background:var(--surface);padding:0 46px 0 42px}
+.search input::-webkit-search-cancel-button{display:none}
+.search>svg{position:absolute;left:14px;top:13px;width:20px;height:20px;color:var(--muted);pointer-events:none}
+.search button{position:absolute;right:3px;top:3px;width:40px;height:40px;border:0;background:none;color:var(--muted);border-radius:50%;display:grid;place-items:center}
+.search button svg{width:18px;height:18px}
+.task.t-dia{background:var(--kraft-soft);border-color:var(--kraft)}
+.task.t-nova{background:var(--accent-soft);border-color:var(--accent)}
+.pill.nova{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.task.t-dia .pill.kraft{background:var(--kraft);color:var(--surface);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.8rem;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:6px;border:1.5px solid}
+.legend .lg-dia{background:var(--kraft-soft);border-color:var(--kraft)}
+.legend .lg-nova{background:var(--accent-soft);border-color:var(--accent)}
+.li.criada{background:var(--accent-soft)}
+.autor{margin-top:5px;font-size:.8rem;color:var(--accent);font-weight:700}
+.task.t-dia .autor{color:var(--kraft)}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dates .field{min-width:0}
+.fab{position:fixed;right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:6;height:56px;padding:0 20px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgb(20 30 60 / .25)}
+.fab svg{width:22px;height:22px}
+.fab.solo{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+
+/* bottom nav */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs button{height:62px;border:0;background:none;display:grid;justify-items:center;align-content:center;gap:3px;font-size:.75rem;color:var(--muted);font-weight:700}
+nav.tabs button svg{width:22px;height:22px}
+nav.tabs button[aria-current="page"]{color:var(--accent)}
+
+/* sections / cards */
+.sec{margin-top:18px;display:grid;gap:10px}
+.sec>h2{margin:0;font-family:var(--f-display);font-stretch:85%;font-weight:800;font-size:1.15rem;text-transform:uppercase;letter-spacing:.03em}
+.sec>p.hint{margin:0;color:var(--muted);font-size:.9rem;max-width:62ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left}
+.li:first-child{border-top:0}
+.li .grow{flex:1;min-width:0}
+.li .t{font-weight:700;overflow-wrap:anywhere}
+.li .s{font-size:.82rem;color:var(--muted)}
+.li svg.chev{width:18px;height:18px;color:var(--muted);flex:none}
+
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.kpi .v{font-family:var(--f-display);font-weight:800;font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:.78rem;color:var(--muted)}
+.kpi.ok .v{color:var(--ok)} .kpi.bad .v{color:var(--bad)} .kpi.warn .v{color:var(--warn)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:150px;padding-top:18px}
+.days .col{display:grid;grid-template-rows:auto 1fr auto;height:100%;justify-items:center;gap:4px;min-width:0}
+.days .col .pct{font-size:.72rem;font-variant-numeric:tabular-nums;color:var(--muted)}
+.days .col .track{width:100%;max-width:34px;background:var(--sunk);border-radius:6px;display:flex;flex-direction:column-reverse;overflow:hidden}
+.days .col .track i{display:block;background:var(--ok)}
+.days .col .lab{font-size:.72rem;color:var(--muted)}
+.days .col.today .lab{color:var(--ink);font-weight:700}
+.ptable{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
+.ptable th{font-weight:700;text-align:right;color:var(--muted);font-size:.75rem;padding:6px 4px;border-bottom:1px solid var(--line)}
+.ptable th:first-child,.ptable td:first-child{text-align:left}
+.ptable td{padding:9px 4px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+.ptable td small{display:block;color:var(--muted);font-size:.75rem}
+.minibar{display:inline-block;width:46px;height:6px;border-radius:3px;background:var(--sunk);vertical-align:middle;margin-left:6px;overflow:hidden}
+.minibar i{display:block;height:100%;background:var(--ok)}
+.scroll-x{overflow-x:auto}
+
+/* forms */
+.field{display:grid;gap:6px}
+.field label,.field .lbl{font-weight:700;font-size:.9rem}
+.field .help{font-size:.8rem;color:var(--muted)}
+.field input[type=text],.field input[type=time],.field input[type=date],.field select,.field textarea{width:100%;min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.field textarea{min-height:76px;resize:vertical}
+.daypick{display:flex;gap:6px;flex-wrap:wrap}
+.daypick label{flex:1 1 40px;min-width:40px}
+.daypick input{position:absolute;opacity:0;pointer-events:none}
+.daypick span{display:grid;place-items:center;height:42px;border-radius:10px;border:1px solid var(--line);font-weight:700;font-size:.85rem;background:var(--bg)}
+.daypick input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.daypick input:focus-visible+span{outline:3px solid var(--accent)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg label{flex:1 1 30%}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:grid;place-items:center;min-height:42px;padding:4px 8px;border-radius:10px;border:1px solid var(--line);font-size:.85rem;text-align:center;background:var(--bg)}
+.seg input:checked+span{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.seg input:focus-visible+span{outline:3px solid var(--accent)}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:700}
+.toggle input{width:22px;height:22px;accent-color:var(--accent)}
+
+/* sheet */
+dialog.sheet{border:0;padding:0;margin:auto auto 0;width:100%;max-width:640px;max-height:92%;background:var(--surface);color:var(--ink);border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgb(0 0 0 / .25)}
+dialog.sheet::backdrop{background:rgb(10 14 22 / .5)}
+.sheet-in{padding:10px max(18px,env(safe-area-inset-left,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line);margin:0 auto}
+.sheet-h{display:flex;align-items:center;gap:10px}
+.sheet-h h3{flex:1;margin:0;font-family:var(--f-display);font-weight:800;font-size:1.2rem;text-wrap:balance}
+.banco h4{margin:10px 0 6px;font-family:var(--f-display);font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--kraft)}
+.banco button{display:block;width:100%;text-align:left;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);margin-bottom:6px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px);font-size:.92rem;box-shadow:0 8px 24px rgb(0 0 0 / .25)}
+.toast button{background:none;border:0;color:var(--bg);font-weight:700;text-decoration:underline;padding:4px}
+.hero{padding-block:28px 10px;display:grid;gap:12px}
+.hero h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:2.2rem;line-height:1;text-transform:uppercase;text-wrap:balance}
+.hero p{margin:0;color:var(--muted);max-width:56ch}
+.notice{font-size:.85rem;color:var(--muted);background:var(--sunk);border-radius:10px;padding:10px 12px}
+.loading{padding:60px 0;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top" id="top" hidden></header>
+<main id="app"><div class="wrap loading">Carregando a rotina da loja…</div></main>
+<nav class="tabs" id="tabs" hidden></nav>
+<dialog class="sheet" id="sheet"><div class="sheet-in" id="sheetIn"></div></dialog>
+<div id="toastBox"></div>
+<div id="recap"></div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,RecaptchaVerifier,signInWithPhoneNumber,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,onSnapshot,collection,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {firebaseConfig} from "./firebase-config.js";
+(function(){
+"use strict";
+
+/* ---------- conteúdo de referência: treinamento Mão na Massa (03/09/2026) ---------- */
+const MOMENTOS=[["abertura","Abertura da loja"],["expediente","Durante o expediente"],["fechamento","Fechamento"],["dia","Tarefas do dia"]];
+const MOM_CURTO={abertura:"Abertura",expediente:"Expediente",fechamento:"Fechamento",dia:"Do dia"};
+const DIAS=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const AREAS=["Pessoas","Vendas","Atendimento","Estoque","Reposição","Compras","Recebimento","Limpeza","Caixa"];
+const SUGERIDO=[
+ ["abertura","Conferir presença, faltas e atrasos da equipe","Pessoas",""],
+ ["abertura","Distribuir a equipe por setor e validar os intervalos","Pessoas",""],
+ ["abertura","Ligar e conferir caixas, internet, sistema e fundo de caixa","Caixa",""],
+ ["abertura","Verificar WhatsApp, pedidos, pendências e retornos de clientes","Atendimento","10:00"],
+ ["abertura","Conferir limpeza e organização da loja","Limpeza",""],
+ ["abertura","Definir prioridades e fazer alinhamento rápido com a equipe","Pessoas",""],
+ ["expediente","Acompanhar atendimento e horários de pico","Atendimento",""],
+ ["expediente","Redistribuir a equipe quando necessário","Pessoas",""],
+ ["expediente","Acompanhar reposição e itens faltantes","Reposição",""],
+ ["expediente","Conferir organização e limpeza","Limpeza",""],
+ ["expediente","Acompanhar tarefas delegadas e vendas parciais","Vendas","14:00"],
+ ["expediente","Tratar imprevistos sem abandonar as prioridades","Pessoas",""],
+ ["fechamento","Conferir tarefas concluídas e registrar pendências","Pessoas",""],
+ ["fechamento","Conferir organização e limpeza","Limpeza",""],
+ ["fechamento","Conferir fechamento dos caixas e comunicar divergências","Caixa",""],
+ ["fechamento","Verificar pedidos e clientes pendentes","Atendimento",""],
+ ["fechamento","Comunicar informações importantes para o próximo dia","Pessoas",""],
+ ["fechamento","Atualizar o planejamento quando necessário","Pessoas",""]
+];
+const BANCO={
+ "Gestão da equipe":["Conferir escala da semana","Verificar folgas, faltas, atrasos e necessidades de cobertura","Definir a distribuição dos funcionários por setor","Organizar os horários de almoço e intervalos","Redistribuir a equipe nos horários de maior movimento","Definir responsáveis por caixa, atendimento, reposição e organização","Acompanhar funcionário em treinamento","Realizar reunião rápida de alinhamento com a equipe","Orientar os colaboradores sobre as prioridades do dia","Realizar feedback individual ou coletivo","Acompanhar dificuldades e desempenho dos funcionários","Preparar a equipe para possíveis ausências"],
+ "Vendas e atendimento":["Definir a meta de vendas da semana","Apresentar a meta para a equipe","Acompanhar o resultado das vendas","Reforçar o foco em vendas nos dias de maior movimento","Acompanhar o atendimento presencial","Conferir o atendimento pelo WhatsApp da loja","Verificar pedidos e clientes aguardando retorno","Direcionar mais funcionários para o atendimento quando necessário","Avaliar a qualidade do atendimento","Trabalhar produtos, campanhas ou promoções prioritárias"],
+ "Estoque e reposição":["Levantar os produtos que estão faltando","Fazer lista de reposição","Definir os setores ou produtos prioritários","Distribuir a reposição entre os responsáveis","Conferir se os produtos foram repostos corretamente","Realizar contagem de estoque","Conferir divergências entre estoque físico e sistema","Fazer os ajustes necessários no estoque","Organizar produtos no estoque e na área de vendas","Conferir mercadorias paradas ou fora do lugar"],
+ "Recebimento":["Preparar o setor para recebimento de mercadorias","Conferir as entregas previstas","Receber e conferir o caminhão","Separar os produtos recebidos","Encaminhar as mercadorias para reposição"],
+ "Compras e pedidos":["Conferir a lista de compras","Verificar pedidos realizados","Acompanhar pedidos pendentes","Verificar no WhatsApp os pedidos enviados ou recebidos","Cobrar retorno de compras ou fornecedores","Conferir produtos aguardando entrega","Comunicar à equipe as mercadorias previstas"],
+ "Organização e limpeza":["Acompanhar a limpeza diária da loja","Verificar a organização das prateleiras","Conferir a organização do estoque","Organizar caixa, balcão e área de atendimento","Realizar uma limpeza ou organização mais completa","Corrigir pontos de desorganização identificados","Preparar a loja para os dias de maior movimento"],
+ "Caixa e administrativo":["Conferir a abertura dos caixas","Testar internet e sistema antes da abertura","Verificar fundo de caixa","Organizar cobertura do caixa nos intervalos","Conferir o fechamento dos caixas","Acompanhar cobranças pendentes","Priorizar cobranças próximas do vencimento","Conferir registros e informações no sistema","Realizar lançamento manual quando o sistema estiver indisponível","Atualizar os registros após a normalização do sistema"]
+};
+const BANCO_AREA={"Gestão da equipe":"Pessoas","Vendas e atendimento":"Vendas","Estoque e reposição":"Estoque","Recebimento":"Recebimento","Compras e pedidos":"Compras","Organização e limpeza":"Limpeza","Caixa e administrativo":"Caixa"};
+
+/* ---------- ícones ---------- */
+const I={
+ check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+ x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+ dots:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+ left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+ right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+ list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2.5"/><path d="M8 9l1.5 1.5L12 8M8 15l1.5 1.5L12 14M14.5 9.5H17M14.5 15.5H17"/></svg>',
+ chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h16M7 16v-5M12 16V6M17 16v-8"/></svg>',
+ repeat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></svg>',
+ store:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5L5.5 4h13L20 9.5M4 9.5h16M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0M5.5 12v8h13v-8M10 20v-4.5h4V20"/></svg>',
+ chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+ close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+ book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>'
+};
+
+/* ---------- utilidades ---------- */
+const $=s=>document.querySelector(s);
+const esc=v=>String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const gid=p=>p+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+const pad=n=>String(n).padStart(2,"0");
+const dkOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const today=()=>dkOf(new Date());
+const parseDk=dk=>{const[y,m,d]=dk.split("-").map(Number);return new Date(y,m-1,d,12)};
+const addDays=(dk,n)=>{const d=parseDk(dk);d.setDate(d.getDate()+n);return dkOf(d)};
+const fmtDia=dk=>{const s=new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"numeric",month:"long"}).format(parseDk(dk));return s.charAt(0).toUpperCase()+s.slice(1)};
+const fmtHora=iso=>{try{return new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(iso))}catch(e){return""}};
+const nowHM=()=>{const d=new Date();return pad(d.getHours())+":"+pad(d.getMinutes())};
+
+/* ---------- estado ---------- */
+const S={db:null,auth:"loading",tel:"",isDir:false,acesso:null,lojaId:"",lojas:null,login:{etapa:"tel",tel:"",busy:false},
+ loja:null,lojaOk:false,rotina:null,rotinaOk:false,
+ dk:today(),day:null,dayOk:false,dayExists:false,
+ tab:"hoje",filtro:"minhas",busca:"",pessoa:"",creating:{},ind:null,indLoading:false,names:{}};
+const unsub={};
+
+const membros=()=>Object.values((S.loja&&S.loja.membros)||{}).filter(m=>m&&m.ativo!==false);
+const meuMembro=()=>S.acesso?membros().find(m=>m.k===S.acesso.k)||null:null;
+function papel(){
+  if(S.isDir) return "diretoria";
+  return S.acesso&&S.acesso.ativo!==false?(S.acesso.papel||"colaborador"):null;
+}
+const isGestor=()=>{const p=papel();return p==="diretoria"||p==="gerente"};
+const meuKey=()=>S.isDir?"diretoria":(S.acesso&&S.acesso.k)||"";
+function nomeDe(k){
+  if(k==="todos")return"Toda a equipe";
+  if(k==="gerente")return"Gerente";
+  if(k==="diretoria")return"Diretoria";
+  const m=S.loja&&S.loja.membros&&S.loja.membros[k];
+  return m?m.nome:"Sem responsável";
+}
+function cabeMim(it){
+  const k=meuKey(),p=papel();
+  return it.r===k||it.r==="todos"||(it.r==="gerente"&&(p==="gerente"||p==="diretoria"));
+}
+
+/* ---------- geração do dia a partir da rotina ---------- */
+const FREQ=[["dias","Dias da semana escolhidos"],["diario","Todos os dias"],["c2","A cada 2 dias"],["c3","A cada 3 dias"],["semanal","Semanal"],["quinzenal","Quinzenal"],["mensal","Mensal"]];
+const FREQ_N={c2:2,c3:3,semanal:7,quinzenal:14};
+const diffDias=(a,b)=>Math.round((parseDk(b)-parseDk(a))/864e5);
+const dm=dk=>dk.slice(8)+"/"+dk.slice(5,7);
+function caiNoDia(r,dk){
+  if(r.ini&&dk<r.ini)return false;
+  if(r.fim&&dk>r.fim)return false;
+  const f=r.freq||"dias";
+  if(f==="dias")return(r.dias||[]).includes(parseDk(dk).getDay());
+  if(f==="diario")return true;
+  const ini=r.ini||r.criada;if(!ini)return false;
+  if(FREQ_N[f])return diffDias(ini,dk)%FREQ_N[f]===0;
+  if(f==="mensal"){const a=parseDk(ini),d=parseDk(dk),ult=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return d.getDate()===Math.min(a.getDate(),ult)}
+  return false;
+}
+function repTxt(r){
+  const f=r.freq||"dias";
+  let s=f==="dias"?diasTxt(r.dias):(FREQ.find(x=>x[0]===f)||["",""])[1];
+  if(f==="mensal"&&r.ini)s+=" (dia "+Number(r.ini.slice(8))+")";
+  if(r.ini&&r.ini>today())s+=" · a partir de "+dm(r.ini);
+  if(r.fim)s+=" · até "+dm(r.fim);
+  return s;
+}
+const rotNova=r=>!!r.criada&&diffDias(r.criada,today())<7;
+function isNova(it){if(!it.rc)return false;const d=diffDias(it.rc,S.dk);return d>=0&&d<7}
+const isCriada=it=>!!it.rc;
+function autorTxt(it){
+  if(it.rc)return(it.cv?"Transformada em rotina":"Rotina criada")+(it.cp?" por "+nomeDe(it.cp):"")+" em "+dm(it.rc);
+  if(it.o==="dia"&&it.cp)return"Tarefa criada por "+nomeDe(it.cp)+(it.cd?" em "+dm(it.cd):"");
+  return"";
+}
+const autorRot=r=>r.criada?autorTxt({rc:r.criada,cp:r.cp,cv:r.cv}):"";
+function genItens(dk){
+  const wd=parseDk(dk).getDay(),out={};
+  const its=(S.rotina&&S.rotina.itens)||{};
+  for(const id in its){const r=its[id];
+    if(!r||r.removido||!caiNoDia(r,dk))continue;
+    out["r_"+id]={t:r.t,m:r.m,r:r.r||"gerente",h:r.h||"",ev:r.ev||"",area:r.area||"",p:!!r.p,o:"rotina",st:"pendente",ord:r.ord||0,rc:r.criada||"",cp:r.cp||"",cv:!!r.cv};
+  }
+  return out;
+}
+function itensDoDia(){
+  if(S.dayExists&&S.day) return S.day.itens||{};
+  if(S.dk>=today()) return genItens(S.dk);
+  return null;
+}
+
+/* ---------- escrita ---------- */
+const fila={};
+function grava(path,fn){
+  const p=(fila[path]||Promise.resolve()).then(fn).then(()=>true).catch(e=>{
+    console.error(e);
+    const c=e&&e.code;
+    toast(c==="invalid_argument"||c==="permission-denied"?"Você não tem permissão para alterar isso. Fale com o gerente.":c==="quota_exceeded"?"O espaço da loja está cheio. Peça à diretoria para arquivar dias antigos.":"Não foi possível salvar. Confira a internet e tente de novo.");
+    return false;
+  });
+  fila[path]=p;return p;
+}
+const dayRef=dk=>S.db.doc("dias/"+dk);
+async function ensureDay(dk){
+  if(dk===S.dk&&S.dayExists)return;
+  const r=await dayRef(dk).get();
+  if(!r.exists){await dayRef(dk).set({data:dk,itens:genItens(dk),criado:new Date().toISOString()});}
+}
+function patchItem(id,patch){
+  const dk=S.dk;
+  return grava("dias/"+dk,async()=>{await ensureDay(dk);await dayRef(dk).update({itens:{[id]:patch}});});
+}
+function maybeCreateToday(){
+  if(!S.db||!S.rotinaOk||!S.dayOk||S.dayExists||S.dk!==today()||!papel()||S.creating[S.dk])return;
+  if(!Object.keys(genItens(S.dk)).length)return;
+  S.creating[S.dk]=true;
+  const dk=S.dk;
+  grava("dias/"+dk,()=>ensureDay(dk));
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg,undo){
+  const box=$("#toastBox");clearTimeout(toastT);
+  box.innerHTML='<div class="toast" role="status"><span></span>'+(undo?'<button type="button" id="undoBtn">Desfazer</button>':"")+"</div>";
+  box.querySelector("span").textContent=msg;
+  if(undo)$("#undoBtn").onclick=()=>{box.innerHTML="";undo()};
+  toastT=setTimeout(()=>{box.innerHTML=""},undo?6000:3500);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const ae=document.activeElement,pos=ae&&ae.id==="busca"?ae.selectionStart:null;
+  render0();
+  if(pos!=null){const b=$("#busca");if(b){b.focus();try{b.setSelectionRange(pos,pos)}catch(e){}}}
+}
+function render0(){
+  const top=$("#top"),app=$("#app"),tabs=$("#tabs");
+  const semTopo=html=>{top.hidden=true;tabs.hidden=true;app.innerHTML=html};
+  if(S.auth==="config")return semTopo(viewSemConfig());
+  if(S.auth==="loading")return semTopo('<div class="wrap loading">Carregando…</div>');
+  if(S.auth==="erro")return semTopo(viewErro());
+  if(S.auth==="out")return semTopo(viewLogin());
+  const p=papel();
+  if(!p)return semTopo(viewSemAcesso());
+  if(p==="diretoria"&&!S.lojaId)return semTopo(viewLojas());
+  if(!S.lojaOk)return semTopo('<div class="wrap loading">Abrindo a loja…</div>');
+  if(!S.loja)return semTopo('<div class="wrap"><div class="empty"><b>Loja não encontrada</b>Ela pode ter sido removida.'+(p==="diretoria"?'<button class="btn" data-act="lojas">Ver lojas</button>':'<button class="btn" data-act="sair">Sair</button>')+"</div></div>");
+  top.hidden=false;
+  const roleLbl={diretoria:"Diretoria",gerente:"Gerente",colaborador:(meuMembro()||{}).nome||"Colaborador"}[p];
+  const showDate=S.tab==="hoje";
+  top.innerHTML='<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+" ▾</button></div>"+
+   (showDate?'<div class="datebar"><button class="iconbtn" data-act="dia" data-n="-1" aria-label="Dia anterior">'+I.left+'</button><div class="d">'+esc(fmtDia(S.dk))+"<small>"+(S.dk===today()?"Hoje":S.dk>today()?"Planejamento":"Dia encerrado")+'</small></div><button class="iconbtn" data-act="dia" data-n="1" aria-label="Próximo dia">'+I.right+"</button>"+(S.dk!==today()?'<button class="todaybtn" data-act="hoje">Hoje</button>':"")+"</div>":"")+"</div>";
+  if(isGestor()){
+    tabs.hidden=false;
+    const T=[["hoje","Checklist",I.list],["equipe","Indicadores",I.chart],["rotina","Rotina",I.repeat],["loja","Equipe",I.store]];
+    tabs.innerHTML='<div class="wrap">'+T.map(t=>'<button data-act="tab" data-tab="'+t[0]+'"'+(S.tab===t[0]?' aria-current="page"':"")+">"+t[2]+t[1]+"</button>").join("")+"</div>";
+  } else {tabs.hidden=true;S.tab="hoje"}
+  app.innerHTML={hoje:viewHoje,equipe:viewEquipe,rotina:viewRotina,loja:viewLoja}[S.tab]();
+}
+
+function statusOf(it){
+  if(it.st==="feito")return"feito";
+  if(it.st==="nao")return"nao";
+  if(S.dk<today())return"semreg";
+  if(S.dk===today()&&it.h&&it.h<nowHM())return"atrasada";
+  return"pendente";
+}
+
+function viewHoje(){
+  const its=itensDoDia();
+  if(!S.dayOk||!S.rotinaOk)return'<div class="wrap loading">Carregando o dia…</div>';
+  if(its===null){
+    return'<div class="wrap"><div class="empty"><b>Nenhum registro neste dia</b>Ninguém usou o checklist nesta data.</div></div>';
+  }
+  const all=Object.entries(its).map(([id,it])=>Object.assign({id},it)).filter(it=>!it.removido);
+  const gestor=isGestor();
+  let base=all;
+  if(S.filtro==="minhas")base=all.filter(cabeMim);
+  else if(S.filtro==="pessoa"&&S.pessoa)base=all.filter(it=>it.r===S.pessoa);
+  S._all=all;S._base=base;
+  const n=base.length,ok=base.filter(i=>i.st==="feito").length,nao=base.filter(i=>i.st==="nao").length;
+  const late=base.filter(i=>statusOf(i)==="atrasada").length;
+  const pct=n?Math.round(ok/n*100):0;
+  let h='<div class="wrap">';
+  h+='<div class="prog"><div class="big">'+pct+"%<span>realizado</span></div>"+
+    '<div class="bar" role="img" aria-label="'+ok+" de "+n+' realizadas"><i class="b-ok" style="width:'+(n?ok/n*100:0)+'%"></i><i class="b-bad" style="width:'+(n?nao/n*100:0)+'%"></i></div>'+
+    '<div class="nums"><span><b>'+ok+"</b> de "+n+" realizadas</span><span><b>"+nao+"</b> não realizadas</span>"+(late?'<span style="color:var(--warn)"><b style="color:var(--warn)">'+late+"</b> atrasadas</span>":"")+"</div></div>";
+  h+=buscaHtml();
+  // filtros
+  h+='<div class="chips" role="group" aria-label="Filtro">'+
+    '<button class="chip" data-act="filtro" data-f="minhas" aria-pressed="'+(S.filtro==="minhas")+'">Minhas</button>'+
+    '<button class="chip" data-act="filtro" data-f="todas" aria-pressed="'+(S.filtro==="todas")+'">Toda a loja</button>';
+  if(gestor){
+    const opts=[["todos","Toda a equipe"],["gerente","Gerente"]].concat(membros().map(m=>[m.k,m.nome]));
+    h+='<select class="chip" id="selPessoa" aria-label="Filtrar por pessoa" data-chg="pessoa"'+(S.filtro==="pessoa"?' style="background:var(--ink);color:var(--bg);font-weight:700"':"")+'><option value="">Por pessoa…</option>'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(S.filtro==="pessoa"&&S.pessoa===o[0]?" selected":"")+">"+esc(o[1])+"</option>").join("")+"</select>";
+  }
+  h+="</div>";
+  h+='<div id="lista">'+listaHtml(all,base)+"</div>";
+  h+="</div>";
+  if(gestor&&S.dk>=today())h+='<button class="fab'+(gestor?"":" solo")+'" data-act="novaTarefa">'+I.plus+"Tarefa do dia</button>";
+  return h;
+}
+
+const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+function filtraBusca(list){
+  const q=norm(S.busca.trim());if(!q)return list;
+  return list.filter(i=>norm([i.t,i.ev,nomeDe(i.r),i.area].join(" ")).includes(q));
+}
+function buscaHtml(){
+  return'<div class="search" role="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" id="busca" placeholder="Buscar tarefa, pessoa ou área" aria-label="Buscar tarefa" autocomplete="off" enterkeyhint="search" value="'+esc(S.busca)+'"><button type="button" data-act="limparBusca" aria-label="Limpar busca"'+(S.busca?"":" hidden")+">"+I.close+"</button></div>";
+}
+function listaHtml(all,base){
+  const gestor=isGestor(),vis=filtraBusca(base);let h="";
+  if(!all.length){
+    h+='<div class="empty"><b>Checklist vazio</b>'+(gestor?"Monte a rotina da loja na aba Rotina ou acrescente uma tarefa só para este dia.":"O gerente ainda não direcionou atividades para este dia.")+"</div>";
+  } else if(!base.length){
+    h+='<div class="empty"><b>Nada por aqui</b>'+(S.filtro==="minhas"?"Nenhuma atividade direcionada a você neste dia. Veja “Toda a loja”.":"Nenhuma atividade para esta pessoa.")+"</div>";
+  } else if(!vis.length){
+    h+='<div class="empty"><b>Nenhuma tarefa encontrada</b>Nada com “'+esc(S.busca.trim())+"”"+(S.filtro!=="todas"?". Tente buscar em “Toda a loja”.":".")+"</div>";
+  }
+  const temDia=vis.some(i=>i.o==="dia"),temNova=vis.some(isCriada);
+  if(temDia||temNova)h+='<div class="legend">'+(temDia?'<span><i class="lg-dia"></i>Tarefa do dia</span>':"")+(temNova?'<span><i class="lg-nova"></i>Rotina criada pela loja</span>':"")+"</div>";
+  for(const [m,lbl] of MOMENTOS){
+    const g=vis.filter(i=>(i.m||"dia")===m).sort((a,b)=>(a.h||"99").localeCompare(b.h||"99")||(a.ord||0)-(b.ord||0));
+    if(!g.length)continue;
+    const gok=g.filter(i=>i.st==="feito").length;
+    h+='<section class="group"><h2>'+esc(lbl)+' <span class="cnt">'+gok+"/"+g.length+'</span></h2><ul class="tasks">'+g.map(taskHtml).join("")+"</ul></section>";
+  }
+  return h;
+}
+function taskHtml(it){
+  const st=statusOf(it);
+  const pills=[];
+  pills.push('<span class="pill who">'+esc(nomeDe(it.r))+"</span>");
+  if(it.h)pills.push('<span class="pill">'+esc(it.h)+"</span>");
+  if(it.p)pills.push('<span class="pill hi">Prioridade alta</span>');
+  if(isCriada(it))pills.push('<span class="pill nova">'+(isNova(it)?"Rotina nova":"Rotina criada")+"</span>");
+  else if(it.o==="dia")pills.push('<span class="pill kraft">Tarefa do dia</span>');
+  if(st==="atrasada")pills.push('<span class="pill late">Atrasada</span>');
+  if(st==="semreg")pills.push('<span class="pill late">Sem registro</span>');
+  if(st==="nao")pills.push('<span class="pill bad">Não realizada</span>');
+  const au=autorTxt(it);
+  let by=au?'<div class="autor">'+esc(au)+"</div>":"";
+  if((it.st==="feito"||it.st==="nao")&&it.em)by+='<div class="by">'+(it.st==="feito"?"Realizada":"Marcada")+" por "+esc(nomeDe(it.pm))+" às "+esc(fmtHora(it.em))+"</div>";
+  const canMark=S.dk<=today();
+  return'<li class="task st-'+esc(it.st||"pendente")+(isCriada(it)?" t-nova":it.o==="dia"?" t-dia":"")+'">'+
+   '<button class="check" data-act="toggle" data-id="'+esc(it.id)+'" aria-label="'+(it.st==="feito"?"Desmarcar":"Marcar como realizada")+'"'+(canMark?"":" disabled")+">"+(it.st==="nao"?I.x:I.check)+"</button>"+
+   '<button class="tb" data-act="item" data-id="'+esc(it.id)+'"><div class="ttl">'+esc(it.t)+'</div><div class="meta">'+pills.join("")+"</div>"+
+   (it.ev?'<div class="ev"><b>Concluída quando:</b> '+esc(it.ev)+"</div>":"")+
+   (it.st==="nao"&&it.motivo?'<div class="motivo"><b>Motivo:</b> '+esc(it.motivo)+"</div>":"")+by+"</button>"+
+   '<button class="more" data-act="item" data-id="'+esc(it.id)+'" aria-label="Mais opções">'+I.dots+"</button></li>";
+}
+
+/* ---------- indicadores ---------- */
+async function carregarInd(){
+  if(S.indLoading)return;S.indLoading=true;render();
+  const t=today(),dks=[];for(let i=6;i>=0;i--)dks.push(addDays(t,-i));
+  try{
+    const snaps=await Promise.all(dks.map(dk=>dk===S.dk&&S.dayExists?Promise.resolve({exists:true,data:()=>S.day}):dayRef(dk).get()));
+    S.ind=dks.map((dk,i)=>({dk,itens:snaps[i].exists?Object.values((snaps[i].data()||{}).itens||{}).filter(x=>x&&!x.removido):null}));
+  }catch(e){console.error(e);toast("Não foi possível carregar os indicadores.");}
+  S.indLoading=false;render();
+}
+function viewEquipe(){
+  if(!S.ind){if(!S.indLoading)setTimeout(carregarInd,0);return'<div class="wrap loading">Calculando os indicadores dos últimos 7 dias…</div>'}
+  const days=S.ind.map(d=>d.dk===today()&&S.dk===today()&&S.dayExists?{dk:d.dk,itens:Object.values(S.day.itens||{}).filter(x=>x&&!x.removido)}:d);
+  const allIt=[].concat(...days.map(d=>d.itens||[]));
+  const tot=allIt.length,ok=allIt.filter(i=>i.st==="feito").length,nao=allIt.filter(i=>i.st==="nao").length;
+  const hoje=days[days.length-1].itens||[];
+  const lateHoje=hoje.filter(i=>i.st!=="feito"&&i.st!=="nao"&&i.h&&i.h<nowHM()).length;
+  let h='<div class="wrap"><section class="sec"><h2>Últimos 7 dias</h2>'+
+   '<div class="kpis"><div class="kpi ok"><div class="v">'+(tot?Math.round(ok/tot*100):0)+'%</div><div class="l">realizado</div></div>'+
+   '<div class="kpi bad"><div class="v">'+nao+'</div><div class="l">não realizadas</div></div>'+
+   '<div class="kpi warn"><div class="v">'+lateHoje+'</div><div class="l">atrasadas hoje</div></div></div>';
+  h+='<div class="card"><div class="days" role="img" aria-label="Percentual realizado por dia">'+days.map(d=>{
+    const n=(d.itens||[]).length,o=(d.itens||[]).filter(i=>i.st==="feito").length,p=n?Math.round(o/n*100):null;
+    return'<div class="col'+(d.dk===today()?" today":"")+'"><span class="pct">'+(p==null?"–":p+"%")+'</span><div class="track" style="height:100%"><i style="height:'+(p||0)+'%"></i></div><span class="lab">'+DIAS[parseDk(d.dk).getDay()]+"</span></div>"}).join("")+"</div></div></section>";
+  // por pessoa
+  const keys=["gerente","todos"].concat(membros().map(m=>m.k));
+  const rows=keys.map(k=>{
+    const mine=allIt.filter(i=>i.r===k),mh=hoje.filter(i=>i.r===k);
+    const feitosPor=allIt.filter(i=>i.st==="feito"&&i.pm===k).length;
+    return{k,n:mine.length,ok:mine.filter(i=>i.st==="feito").length,nao:mine.filter(i=>i.st==="nao").length,hn:mh.length,hok:mh.filter(i=>i.st==="feito").length,feitosPor};
+  }).filter(r=>r.n||r.feitosPor||(r.k!=="todos"&&r.k!=="gerente"));
+  h+='<section class="sec"><h2>Por pessoa</h2><p class="hint">Atividades direcionadas a cada pessoa. “Marcou” conta tudo que a pessoa registrou, inclusive tarefas da equipe toda.</p><div class="card scroll-x"><table class="ptable"><thead><tr><th>Pessoa</th><th>Hoje</th><th>7 dias</th><th>Não real.</th><th>Marcou</th></tr></thead><tbody>'+
+   rows.map(r=>{const p=r.n?Math.round(r.ok/r.n*100):0;const m=S.loja.membros&&S.loja.membros[r.k];
+    return"<tr><td>"+esc(nomeDe(r.k))+(m&&m.funcao?"<small>"+esc(m.funcao)+"</small>":"")+"</td><td>"+r.hok+"/"+r.hn+"</td><td>"+(r.n?p+'%<span class="minibar"><i style="width:'+p+'%"></i></span>':"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.feitosPor||"–")+"</td></tr>"}).join("")+"</tbody></table></div></section>";
+  // não realizadas
+  const naoList=[];days.forEach(d=>(d.itens||[]).forEach(i=>{if(i.st==="nao")naoList.push({dk:d.dk,i})}));
+  h+='<section class="sec"><h2>Não realizadas</h2>'+(naoList.length?'<div class="list">'+naoList.reverse().map(x=>'<div class="li"><div class="grow"><div class="t">'+esc(x.i.t)+'</div><div class="s">'+esc(DIAS[parseDk(x.dk).getDay()]+" "+x.dk.slice(8)+"/"+x.dk.slice(5,7))+" · "+esc(nomeDe(x.i.r))+(x.i.motivo?" · Motivo: "+esc(x.i.motivo):"")+"</div></div></div>").join("")+"</div>":'<p class="hint">Nenhuma atividade marcada como não realizada nos últimos 7 dias.</p>')+
+   '<p class="hint">Problemas que se repetem pedem um plano de ação: diagnóstico, responsáveis, prazos e etapas.</p></section>';
+  h+='<div class="sec"><button class="btn block" data-act="recarregarInd">Atualizar indicadores</button></div></div>';
+  return h;
+}
+
+/* ---------- rotina ---------- */
+function viewRotina(){
+  const its=Object.entries((S.rotina&&S.rotina.itens)||{}).map(([id,r])=>Object.assign({id},r)).filter(r=>!r.removido);
+  let h='<div class="wrap"><section class="sec"><h2>Rotina da loja</h2><p class="hint">Atividades que entram sozinhas no checklist conforme a repetição de cada uma. Mudanças valem a partir do próximo dia; para hoje, use “Aplicar a hoje”. Rotinas criadas pela loja ficam em azul, com o nome de quem cadastrou; as do checklist sugerido ficam em branco.</p>'+
+   '<div class="row"><button class="btn primary" data-act="novaRotina">'+I.plus+'Nova rotina</button><button class="btn" data-act="banco" data-alvo="rotina">'+I.book+"Banco de tarefas</button></div></section>";
+  if(!its.length)h+='<div class="empty"><b>Nenhuma rotina cadastrada</b>Comece pelo checklist sugerido no treinamento Mão na Massa.<button class="btn primary" data-act="usarSugerido">Usar checklist sugerido</button></div>';
+  for(const [m,lbl] of MOMENTOS){
+    const g=its.filter(r=>r.m===m).sort((a,b)=>(a.h||"99").localeCompare(b.h||"99")||(a.ord||0)-(b.ord||0));
+    if(!g.length)continue;
+    h+='<section class="group"><h2>'+esc(lbl)+' <span class="cnt">'+g.length+'</span></h2><div class="list">'+g.map(r=>'<button class="li'+(r.criada?" criada":"")+'" data-act="editRotina" data-id="'+esc(r.id)+'"><div class="grow"><div class="t">'+esc(r.t)+'</div>'+(r.criada?'<div class="autor" style="margin-top:2px">'+esc(autorRot(r))+"</div>":"")+'<div class="meta"><span class="pill who">'+esc(nomeDe(r.r))+"</span>"+(r.h?'<span class="pill">'+esc(r.h)+"</span>":"")+'<span class="pill">'+esc(repTxt(r))+"</span>"+(rotNova(r)?'<span class="pill nova">Nova</span>':"")+(r.p?'<span class="pill hi">Alta</span>':"")+"</div></div>"+I.chev+"</button>").join("")+"</div></section>";
+  }
+  if(its.length)h+='<div class="sec"><button class="btn block" data-act="aplicarHoje">Aplicar a rotina ao checklist de hoje</button></div>';
+  return h+"</div>";
+}
+function diasTxt(d){d=(d||[]).slice().sort();const s=d.join();
+  if(s==="0,1,2,3,4,5,6")return"Todos os dias";if(s==="1,2,3,4,5,6")return"Seg a Sáb";if(s==="1,2,3,4,5")return"Seg a Sex";
+  return d.length?d.map(i=>DIAS[i]).join(", "):"Nenhum dia";}
+
+/* ---------- loja / equipe / acessos ---------- */
+function viewLoja(){
+  const p=papel();
+  let h='<div class="wrap">';
+  h+='<section class="sec"><h2>Equipe</h2><p class="hint">Cadastre quem trabalha na loja para direcionar tarefas. A pessoa não precisa de celular cadastrado para receber tarefas; o acesso ao app pode ser liberado depois. Também dá para cadastrar direto ao criar uma tarefa, em “Quem fará”.</p>';
+  const ms=membros().sort((a,b)=>(a.papel==="gerente"?0:1)-(b.papel==="gerente"?0:1)||a.nome.localeCompare(b.nome));
+  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(m.tel?'<span class="pill ok">Entra com '+esc(fmtTel(m.tel))+"</span>":'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e celular.</div>';
+  h+='<button class="btn primary" data-act="novoMembro">'+I.plus+"Cadastrar pessoa</button></section>";
+  h+='<section class="sec"><h2>Como dar acesso</h2><div class="card" style="display:grid;gap:8px"><div>1. Cadastre a pessoa com o <b>número de celular</b>.</div><div>2. Envie a ela o endereço do app.</div><div>3. Ela digita o celular, recebe um código por SMS e já entra no checklist desta loja.</div></div>'+
+   '<p class="hint">Cada pessoa só enxerga a loja em que foi cadastrada.'+(p==="gerente"?" Apenas a diretoria pode cadastrar ou alterar gerentes.":"")+"</p></section>";
+  if(p==="diretoria"||p==="gerente"){
+    h+='<section class="sec"><h2>Unidade</h2><form class="card" data-form="nomeLoja" style="display:grid;gap:10px"><div class="field"><label for="fLoja">Nome da unidade</label><input type="text" id="fLoja" name="nome" maxlength="60" required value="'+esc(S.loja.nome||"")+'"></div><button class="btn">Salvar nome</button></form></section>';
+  }
+  return h+"</div>";
+}
+
+function viewLogin(){
+  const L=S.login;
+  let h='<div class="wrap"><div class="hero"><h1>Rotina BIN</h1><p>Checklist diário das lojas BIN Embalagens. Entre com o celular cadastrado pelo seu gerente ou pela diretoria.</p></div>';
+  if(L.etapa==="tel")h+='<form class="card" data-form="login" style="display:grid;gap:14px"><div class="field"><label for="fTel">Celular com DDD</label><input type="tel" id="fTel" name="tel" inputmode="tel" autocomplete="tel-national" required placeholder="(11) 99999-0000" value="'+esc(L.tel?fmtTel(L.tel):"")+'"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Enviando código…":"Receber código por SMS")+"</button></form>";
+  else h+='<form class="card" data-form="codigo" style="display:grid;gap:14px"><p style="margin:0">Enviamos um código por SMS para <b>'+esc(fmtTel(L.tel))+'</b>.</p><div class="field"><label for="fCod">Código de 6 dígitos</label><input type="text" id="fCod" name="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Conferindo…":"Entrar")+'</button><button type="button" class="btn block" data-act="trocarTel">Usar outro número</button></form>';
+  return h+'<p class="hint" style="color:var(--muted);font-size:.85rem;margin-top:14px">Você continua conectado neste aparelho até tocar em Sair.</p></div>';
+}
+function viewSemAcesso(){
+  return'<div class="wrap"><div class="hero"><h1>Acesso não liberado</h1><p>O celular <b>'+esc(fmtTel(S.tel))+'</b> ainda não está cadastrado em nenhuma loja. Peça ao seu gerente para cadastrar este número na aba Equipe.</p></div><div class="row"><button class="btn" data-act="recarregar">Já fui cadastrado</button><button class="btn" data-act="sair">Sair</button></div></div>';
+}
+function viewSemConfig(){
+  return'<div class="wrap"><div class="hero"><h1>Falta configurar</h1><p>Preencha o arquivo <b>firebase-config.js</b> com os dados do projeto Firebase para o app funcionar.</p></div></div>';
+}
+function viewErro(){
+  return'<div class="wrap"><div class="hero"><h1>Não foi possível abrir</h1><p>'+esc(S.erro||"Erro desconhecido.")+'</p></div><div class="row"><button class="btn" data-act="recarregar">Tentar de novo</button><button class="btn" data-act="sair">Sair</button></div></div>';
+}
+function viewLojas(){
+  let h='<div class="wrap"><div class="hero"><h1>Lojas BIN</h1><p>Escolha uma unidade para ver o checklist, a rotina, a equipe e os indicadores.</p></div>';
+  if(!S.lojas)h+='<div class="loading">Carregando as lojas…</div>';
+  else if(!S.lojas.length)h+='<div class="empty"><b>Nenhuma loja cadastrada</b>Crie a primeira unidade abaixo.</div>';
+  else h+='<div class="list">'+S.lojas.slice().sort((a,b)=>(a.nome||"").localeCompare(b.nome||"")).map(l=>{const ms=Object.values(l.membros||{}).filter(m=>m&&m.ativo!==false);const g=ms.filter(m=>m.papel==="gerente").map(m=>m.nome);
+    return'<button class="li" data-act="abrirLoja" data-id="'+esc(l.id)+'"><div class="grow"><div class="t">'+esc(l.nome||"Sem nome")+'</div><div class="s">'+esc((g.length?"Gerente: "+g.join(", "):"Sem gerente cadastrado")+" · "+ms.length+" pessoa(s)")+"</div></div>"+I.chev+"</button>"}).join("")+"</div>";
+  h+='<section class="sec"><h2>Nova loja</h2><form class="card" data-form="novaLoja" style="display:grid;gap:14px"><div class="field"><label for="fNovaLoja">Nome da unidade</label><input type="text" id="fNovaLoja" name="nome" maxlength="60" required placeholder="Ex.: BIN Embalagens · Centro"></div><label class="toggle"><input type="checkbox" id="fNovaSug" name="sug" checked> Começar com o checklist sugerido no treinamento (18 atividades)</label><button class="btn primary block">Criar loja</button></form></section>';
+  return h+'<div class="sec"><button class="btn block" data-act="sair">Sair ('+esc(fmtTel(S.tel))+")</button></div></div>";
+}
+
+/* ---------- sheets ---------- */
+const sheet=$("#sheet");
+let sheetCtx=null;
+function openSheet(title,body,ctx){
+  sheetCtx=ctx||null;
+  $("#sheetIn").innerHTML='<div class="grab"></div><div class="sheet-h"><h3>'+esc(title)+'</h3><button class="iconbtn" data-act="fechar" aria-label="Fechar">'+I.close+"</button></div>"+body;
+  if(!sheet.open)sheet.showModal();
+}
+function closeSheet(){if(sheet.open)sheet.close();sheetCtx=null}
+sheet.addEventListener("click",e=>{if(e.target===sheet)closeSheet()});
+
+function respOptions(sel){
+  const o=[["todos","Toda a equipe"],["gerente","Gerente"]].concat(membros().map(m=>[m.k,m.nome+(m.funcao?" · "+m.funcao:"")]));
+  return o.map(x=>'<option value="'+esc(x[0])+'"'+(x[0]===sel?" selected":"")+">"+esc(x[1])+"</option>").join("")+(isGestor()?'<option value="__nova">+ Cadastrar nova pessoa…</option>':"");
+}
+function campoNovaPessoa(){
+  return'<div class="card" id="novaPessoa" hidden style="display:grid;gap:10px;background:var(--bg)"><div class="field"><label for="fNN">Nome do colaborador</label><input type="text" id="fNN" name="nn" maxlength="50" placeholder="Ex.: João"></div><div class="field"><label for="fNF">Função (opcional)</label><input type="text" id="fNF" name="nf" maxlength="40" placeholder="Ex.: Estoquista"></div><span class="help" style="font-size:.8rem;color:var(--muted)">A pessoa entra na equipe da loja e já recebe esta tarefa. Não precisa ter conta para ser responsável.</span></div>';
+}
+function resolverResp(v){
+  if(v.r!=="__nova")return v.r;
+  if(!v.nn){toast("Escreva o nome do colaborador.");return null}
+  const k=gid("m_");
+  lojaUpdate({membros:{[k]:{k,nome:v.nn,funcao:v.nf,papel:"colaborador",ativo:true}}}).then(ok=>ok&&toast(v.nn+" foi cadastrado(a) na equipe."));
+  return k;
+}
+function campoRepeticao(it,show){
+  const f=it.freq||"dias",d=it.dias&&it.dias.length?it.dias:[1,2,3,4,5,6];
+  const ini=it.ini||(it.id&&!it.st?"":S.dk);
+  return'<div class="card" id="repBox"'+(show?"":" hidden")+' style="display:grid;gap:12px;background:var(--bg)">'+
+   '<div class="field"><label for="fFreq">Repetição</label><select id="fFreq" name="freq">'+FREQ.map(x=>'<option value="'+x[0]+'"'+(x[0]===f?" selected":"")+">"+esc(x[1])+"</option>").join("")+"</select></div>"+
+   '<div class="field" id="dayBox"'+(f==="dias"?"":" hidden")+'><span class="lbl">Dias da semana</span><div class="daypick">'+[1,2,3,4,5,6,0].map(i=>'<label><input type="checkbox" name="dias" value="'+i+'"'+(d.includes(i)?" checked":"")+"><span>"+DIAS[i]+"</span></label>").join("")+"</div></div>"+
+   '<div class="dates"><div class="field"><label for="fIni">Início</label><input type="date" id="fIni" name="ini" value="'+esc(ini)+'"></div><div class="field"><label for="fFim">Fim (opcional)</label><input type="date" id="fFim" name="fim" value="'+esc(it.fim||"")+'"></div></div>'+
+   '<span class="help" style="font-size:.8rem;color:var(--muted)">Sem data de fim, a rotina continua até ser excluída. Para “a cada 2 ou 3 dias”, semanal, quinzenal e mensal, a contagem começa na data de início.</span></div>';
+}
+function formTarefa(it,{rotina,converter}){
+  it=it||{};
+  const m=it.m||(rotina?"abertura":"dia");
+  let h='<form data-form="'+(rotina?"rotina":"tarefa")+'" style="display:grid;gap:14px">'+
+   '<div class="field"><label for="fT">O que será feito</label><textarea id="fT" name="t" maxlength="200" required placeholder="Ex.: Concluir a reposição do setor de descartáveis">'+esc(it.t||"")+'</textarea>'+(rotina||it.id?"":'<button type="button" class="btn" data-act="banco" data-alvo="tarefa" style="justify-self:start;min-height:38px">'+I.book+"Escolher do banco de tarefas</button>")+"</div>"+
+   '<div class="field"><label for="fR">Quem fará</label><select id="fR" name="r">'+respOptions(it.r||(rotina?"gerente":"todos"))+"</select></div>"+campoNovaPessoa()+
+   '<div class="field"><span class="lbl">Quando</span><div class="seg">'+MOMENTOS.map(x=>'<label><input type="radio" name="m" value="'+x[0]+'"'+(x[0]===m?" checked":"")+"><span>"+esc(MOM_CURTO[x[0]])+"</span></label>").join("")+"</div></div>"+
+   '<div class="field"><label for="fH">Até que horas (opcional)</label><input type="time" id="fH" name="h" value="'+esc(it.h||"")+'"><span class="help">Depois deste horário a tarefa aparece como atrasada.</span></div>';
+  if(rotina)h+=campoRepeticao(it,true);
+  else if(!it.id)h+='<label class="toggle"><input type="checkbox" id="fVira" name="vira"> Repetir esta tarefa (virar rotina)</label>'+campoRepeticao(it,false);
+  h+='<div class="field"><label for="fEv">Como saber que foi concluída (opcional)</label><input type="text" id="fEv" name="ev" maxlength="160" value="'+esc(it.ev||"")+'" placeholder="Ex.: setores conferidos pelo gerente"></div>'+
+   '<label class="toggle"><input type="checkbox" id="fP" name="p"'+(it.p?" checked":"")+"> Prioridade alta</label>"+
+   '<button class="btn primary block">'+(converter?"Transformar em rotina":it.id?"Salvar":rotina?"Adicionar à rotina":"Adicionar ao dia")+"</button>";
+  if(it.id&&rotina&&!converter)h+='<button type="button" class="btn danger block" data-act="excluirRotina">Excluir da rotina</button>';
+  return h+"</form>";
+}
+function readForm(f){
+  const fd=new FormData(f);
+  return{t:(fd.get("t")||"").trim(),r:fd.get("r")||"todos",m:fd.get("m")||"dia",h:fd.get("h")||"",ev:(fd.get("ev")||"").trim(),p:!!fd.get("p"),dias:fd.getAll("dias").map(Number),nn:(fd.get("nn")||"").trim(),nf:(fd.get("nf")||"").trim(),
+    freq:fd.get("freq")||"dias",ini:fd.get("ini")||"",fim:fd.get("fim")||"",vira:!!fd.get("vira")};
+}
+function montarRotina(v){
+  if(v.freq==="dias"&&!v.dias.length){toast("Escolha pelo menos um dia da semana.");return null}
+  let ini=v.ini;if(!ini&&v.freq!=="dias"&&v.freq!=="diario")ini=today();
+  if(v.fim&&ini&&v.fim<ini){toast("A data de fim precisa ser depois do início.");return null}
+  return{t:v.t,r:v.r,m:v.m,h:v.h,ev:v.ev,p:v.p,freq:v.freq,dias:v.freq==="dias"?v.dias:[],ini,fim:v.fim};
+}
+
+function sheetItem(id){
+  const its=itensDoDia()||{};const it=its[id];if(!it)return;
+  const gestor=isGestor(),past=S.dk>today();
+  let h='<div style="display:grid;gap:6px"><div class="ttl" style="font-weight:700;font-size:1.05rem">'+esc(it.t)+'</div><div class="meta"><span class="pill who">'+esc(nomeDe(it.r))+'</span><span class="pill">'+esc(MOM_CURTO[it.m||"dia"])+"</span>"+(it.h?'<span class="pill">até '+esc(it.h)+"</span>":"")+(it.o==="rotina"?'<span class="pill kraft">Rotina</span>':"")+"</div>"+(autorTxt(it)?'<div class="autor">'+esc(autorTxt(it))+"</div>":"")+(it.ev?'<div class="ev"><b>Concluída quando:</b> '+esc(it.ev)+"</div>":"")+"</div>";
+  if(!past){
+    h+='<div class="row">'+(it.st!=="feito"?'<button class="btn ok" data-act="marcar" data-st="feito">'+I.check+"Realizada</button>":"")+(it.st!=="pendente"&&it.st?'<button class="btn" data-act="marcar" data-st="pendente">Reabrir</button>':"")+"</div>";
+    if(it.st!=="nao")h+='<form data-form="nao" style="display:grid;gap:8px"><div class="field"><label for="fMot">Não foi realizada? Diga o motivo</label><input type="text" id="fMot" name="motivo" maxlength="160" required placeholder="Ex.: falta de funcionário, sistema fora do ar"></div><button class="btn danger">Marcar como não realizada</button></form>';
+  }
+  if(gestor&&S.dk>=today()){
+    if(it.o==="dia"&&!it.rid)h+='<button class="btn primary block" data-act="virarRotina">'+I.repeat+"Transformar em rotina</button>";
+    h+='<div class="row"><button class="btn" data-act="editarItem">Editar</button><button class="btn danger" data-act="removerItem">Tirar deste dia</button></div>';
+  }
+  openSheet("Atividade",h,{tipo:"item",id});
+}
+
+function sheetBanco(alvo){
+  let h='<p class="hint" style="margin:0;color:var(--muted)">Lista do treinamento Mão na Massa. Toque em uma atividade para usá-la e ajuste os detalhes.</p><div class="banco">';
+  for(const a in BANCO)h+="<h4>"+esc(a)+"</h4>"+BANCO[a].map((t,i)=>'<button type="button" data-act="pegaBanco" data-a="'+esc(a)+'" data-i="'+i+'">'+esc(t)+"</button>").join("");
+  openSheet("Banco de tarefas",h+"</div>",{tipo:"banco",alvo,prev:sheetCtx});
+}
+
+function sheetMembro(k){
+  const m=k?S.loja.membros[k]:null;const p=papel();
+  const lockGerente=p!=="diretoria";
+  if(m&&m.papel==="gerente"&&lockGerente){openSheet(m.nome,'<p class="hint">Apenas a diretoria pode alterar o cadastro de gerentes.</p>');return}
+  let h='<form data-form="membro" style="display:grid;gap:14px"><div class="field"><label for="fMNome">Nome</label><input type="text" id="fMNome" name="nome" maxlength="50" required value="'+esc(m?m.nome:"")+'"></div>'+
+   '<div class="field"><label for="fMFun">Função</label><input type="text" id="fMFun" name="funcao" maxlength="40" value="'+esc(m?m.funcao||"":"")+'" placeholder="Ex.: Subgerente, Caixa, Estoquista"></div>'+
+   '<div class="field"><label for="fMTel">Celular para entrar no app (opcional)</label><input type="tel" id="fMTel" name="tel" inputmode="tel" placeholder="(11) 99999-0000" value="'+esc(m&&m.tel?fmtTel(m.tel):"")+'"><span class="help">Com o celular cadastrado, a pessoa entra no app com um código enviado por SMS.</span></div>';
+  if(!lockGerente)h+='<div class="field"><span class="lbl">Papel</span><div class="seg"><label><input type="radio" name="papel" value="colaborador"'+(!m||m.papel!=="gerente"?" checked":"")+'><span>Colaborador</span></label><label><input type="radio" name="papel" value="gerente"'+(m&&m.papel==="gerente"?" checked":"")+'><span>Gerente</span></label></div><span class="help">Gerente monta a rotina, direciona tarefas e vê os indicadores. Colaborador vê o checklist da loja e marca as atividades.</span></div>';
+  h+='<button class="btn primary block">'+(m?"Salvar":"Cadastrar")+"</button>";
+  if(m&&m.tel)h+='<button type="button" class="btn block" data-act="desvincular">Tirar o acesso ao app</button>';
+  if(m)h+='<button type="button" class="btn danger block" data-act="excluirMembro">Remover da equipe</button>';
+  openSheet(m?m.nome:"Cadastrar pessoa",h+"</form>",{tipo:"membro",k});
+}
+
+/* ---------- ações ---------- */
+function sugeridoItens(){const itens={};SUGERIDO.forEach((s,i)=>{itens["s"+pad(i)]={t:s[1],m:s[0],area:s[2],h:s[3],r:"gerente",dias:[1,2,3,4,5,6],ev:"",p:false,ord:i}});return itens}
+function normTel(v){let d=String(v||"").replace(/\D/g,"");if(d.length===10||d.length===11)d="55"+d;return d.length>=12&&d.length<=13?"+"+d:""}
+function fmtTel(t){const d=String(t||"").replace(/\D/g,"").replace(/^55/,"");if(d.length===11)return"("+d.slice(0,2)+") "+d.slice(2,7)+"-"+d.slice(7);if(d.length===10)return"("+d.slice(0,2)+") "+d.slice(2,6)+"-"+d.slice(6);return t||""}
+function acessoBatch(fn){
+  return grava("acessos",async()=>{const b=writeBatch(FB.db);fn(b);await b.commit()});
+}
+function lojaUpdate(patch){return grava("config/loja",()=>S.db.doc("config/loja").update(patch))}
+function rotinaWrite(patchItens){
+  return grava("config/rotina",async()=>{
+    const r=S.db.doc("config/rotina");
+    if(S.rotina)await r.update({itens:patchItens});else await r.set({itens:patchItens});
+  });
+}
+
+const acts={
+  tab(el){S.tab=el.dataset.tab;if(S.tab==="equipe")S.ind=null;render();scrollTo(0,0)},
+  dia(el){setDay(addDays(S.dk,Number(el.dataset.n)))},
+  hoje(){setDay(today())},
+  filtro(el){S.filtro=el.dataset.f;S.pessoa="";render()},
+  toggle(el){
+    const id=el.dataset.id,it=(itensDoDia()||{})[id];if(!it)return;
+    if(S.dk>today())return;
+    const novo=it.st==="feito"?"pendente":"feito";
+    if(it.st==="nao"){sheetItem(id);return}
+    patchItem(id,{st:novo,pm:novo==="feito"?meuKey():null,em:novo==="feito"?new Date().toISOString():null,motivo:null});
+  },
+  item(el){sheetItem(el.dataset.id)},
+  marcar(el){
+    const id=sheetCtx.id,st=el.dataset.st;
+    patchItem(id,{st,pm:st==="pendente"?null:meuKey(),em:st==="pendente"?null:new Date().toISOString(),motivo:null});closeSheet();
+  },
+  removerItem(){
+    const id=sheetCtx.id;closeSheet();
+    patchItem(id,{removido:true}).then(ok=>ok&&toast("Atividade tirada deste dia.",()=>patchItem(id,{removido:false})));
+  },
+  editarItem(){
+    const id=sheetCtx.id,it=(itensDoDia()||{})[id];
+    openSheet("Editar atividade",formTarefa(Object.assign({id},it),{rotina:false}),{tipo:"editItem",id});
+  },
+  virarRotina(){
+    const id=sheetCtx.id,it=(itensDoDia()||{})[id];if(!it)return;
+    openSheet("Transformar em rotina",formTarefa(Object.assign({},it,{id}),{rotina:true,converter:true}),{tipo:"converter",id,area:it.area||""});
+  },
+  limparBusca(){S.busca="";render();const b=$("#busca");if(b)b.focus()},
+  novaTarefa(){openSheet("Tarefa para "+(S.dk===today()?"hoje":fmtDia(S.dk)),formTarefa(null,{rotina:false}),{tipo:"novaTarefa"})},
+  novaRotina(){openSheet("Nova rotina",formTarefa(null,{rotina:true}),{tipo:"novaRotina"})},
+  editRotina(el){const id=el.dataset.id,r=S.rotina.itens[id];openSheet("Editar rotina",formTarefa(Object.assign({id},r),{rotina:true}),{tipo:"editRotina",id})},
+  excluirRotina(){const id=sheetCtx.id;closeSheet();rotinaWrite({[id]:{removido:true}}).then(ok=>ok&&toast("Rotina excluída.",()=>rotinaWrite({[id]:{removido:false}})))},
+  banco(el){sheetBanco(el.dataset.alvo)},
+  pegaBanco(el){
+    const a=el.dataset.a,t=BANCO[a][Number(el.dataset.i)],area=BANCO_AREA[a];
+    const alvo=sheetCtx&&sheetCtx.alvo;
+    if(alvo==="rotina")openSheet("Nova rotina",formTarefa({t,area},{rotina:true}),{tipo:"novaRotina",area});
+    else openSheet("Tarefa para "+(S.dk===today()?"hoje":fmtDia(S.dk)),formTarefa({t,area},{rotina:false}),{tipo:"novaTarefa",area});
+  },
+  usarSugerido(){
+    rotinaWrite(sugeridoItens()).then(ok=>ok&&toast("Checklist sugerido adicionado à rotina."));
+  },
+  aplicarHoje(){
+    const dk=today();
+    grava("dias/"+dk,async()=>{
+      await ensureDay(dk);
+      const snap=await dayRef(dk).get();const cur=(snap.data()||{}).itens||{};
+      const add={};const gen=genItens(dk);const lig=new Set(Object.values(cur).map(x=>x&&x.rid).filter(Boolean));for(const id in gen)if(!cur[id]&&!lig.has(id.slice(2)))add[id]=gen[id];
+      const n=Object.keys(add).length;
+      if(n)await dayRef(dk).update({itens:add});
+      toast(n?n+" atividade(s) da rotina incluída(s) no checklist de hoje.":"O checklist de hoje já tem todas as rotinas.");
+    });
+  },
+  recarregarInd(){S.ind=null;carregarInd()},
+  novoMembro(){sheetMembro(null)},
+  membro(el){sheetMembro(el.dataset.k)},
+  excluirMembro(){const k=sheetCtx.k,m=S.loja.membros[k];closeSheet();
+    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{ativo:false,tel:""}}}));if(m&&m.tel)b.delete(doc(FB.db,"acessos/"+m.tel))}).then(ok=>ok&&toast("Pessoa removida da equipe."))},
+  desvincular(){const k=sheetCtx.k,m=S.loja.membros[k];closeSheet();
+    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{tel:""}}}));if(m&&m.tel)b.delete(doc(FB.db,"acessos/"+m.tel))}).then(ok=>ok&&toast("Acesso ao app retirado."))},
+  menu(){
+    let h='<p style="margin:0;color:var(--muted)">Conectado com o celular <b style="color:var(--ink)">'+esc(fmtTel(S.tel))+"</b></p>";
+    if(papel()==="diretoria")h+='<button class="btn block" data-act="lojas">Trocar de loja</button>';
+    h+='<button class="btn danger block" data-act="sair">Sair</button>';
+    openSheet("Sua conta",h);
+  },
+  lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
+  abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
+  sair(){closeSheet();signOut(FB.auth)},
+  recarregar(){location.reload()},
+  trocarTel(){S.login={etapa:"tel",tel:S.login.tel,busy:false};render()},
+  fechar(){closeSheet()}
+};
+
+const forms={
+  tarefa(f){
+    const v=readForm(f);if(!v.t)return;
+    const editando=sheetCtx&&sheetCtx.tipo==="editItem";
+    let rot=null;
+    if(v.vira&&!editando){rot=montarRotina(v);if(!rot)return}
+    const r=resolverResp(v);if(!r)return;v.r=r;
+    const it={t:v.t,r:v.r,m:v.m,h:v.h,ev:v.ev,p:v.p};
+    if(editando){patchItem(sheetCtx.id,it);closeSheet();toast("Atividade atualizada.");return}
+    if(rot){
+      const rid=gid("u_"),criada=today(),area=(sheetCtx&&sheetCtx.area)||"";
+      rot.r=r;
+      const cp=meuKey();
+      rotinaWrite({[rid]:Object.assign(rot,{area,ord:Date.now(),criada,cp})});
+      patchItem("r_"+rid,Object.assign(it,{area,o:"rotina",rid,rc:criada,cp,st:"pendente",ord:Date.now()}));
+      closeSheet();toast("Tarefa criada e salva como rotina: "+repTxt(rot)+".");return;
+    }
+    const id=gid("d_");
+    patchItem(id,Object.assign(it,{area:(sheetCtx&&sheetCtx.area)||"",o:"dia",st:"pendente",ord:Date.now(),cp:meuKey(),cd:today()}));
+    closeSheet();toast("Tarefa direcionada para "+nomeDe(v.r)+".");
+  },
+  rotina(f){
+    const v=readForm(f);if(!v.t)return;
+    const rot=montarRotina(v);if(!rot)return;
+    const r=resolverResp(v);if(!r)return;rot.r=r;
+    if(sheetCtx&&sheetCtx.tipo==="editRotina"){rotinaWrite({[sheetCtx.id]:rot});closeSheet();toast("Rotina atualizada.");return}
+    const rid=gid("u_"),criada=today(),area=(sheetCtx&&sheetCtx.area)||"",cp=meuKey(),cv=!!(sheetCtx&&sheetCtx.tipo==="converter");
+    rotinaWrite({[rid]:Object.assign(rot,{area,ord:Date.now(),criada,cp,cv})});
+    if(cv){patchItem(sheetCtx.id,{o:"rotina",rid,rc:criada,cp,cv:true});closeSheet();toast("Tarefa transformada em rotina: "+repTxt(rot)+".");return}
+    closeSheet();toast("Rotina adicionada: "+repTxt(rot)+".");
+  },
+  nao(f){
+    const motivo=(new FormData(f).get("motivo")||"").trim();if(!motivo)return;
+    patchItem(sheetCtx.id,{st:"nao",motivo,pm:meuKey(),em:new Date().toISOString()});closeSheet();
+  },
+  membro(f){
+    const fd=new FormData(f),nome=(fd.get("nome")||"").trim();if(!nome)return;
+    const telRaw=(fd.get("tel")||"").trim(),tel=telRaw?normTel(telRaw):"";
+    if(telRaw&&!tel){toast("Celular inválido. Digite o DDD e o número.");return}
+    const k=(sheetCtx&&sheetCtx.k)||gid("m_"),m0=S.loja.membros[k];
+    const pap=fd.get("papel")||(m0&&m0.papel)||"colaborador";
+    const outro=membros().find(m=>m.tel&&m.tel===tel&&m.k!==k);
+    if(tel&&outro){toast("Este celular já está cadastrado para "+outro.nome+".");return}
+    const patch={k,nome,funcao:(fd.get("funcao")||"").trim(),ativo:true,papel:pap,tel};
+    closeSheet();
+    grava("acessos",async()=>{
+      const b=writeBatch(FB.db);
+      b.update(FB.lojaRef(),flat({membros:{[k]:patch}}));
+      if(m0&&m0.tel&&m0.tel!==tel)b.delete(doc(FB.db,"acessos/"+m0.tel));
+      if(tel)b.set(doc(FB.db,"acessos/"+tel),{lojaId:S.lojaId,papel:pap,k,nome,ativo:true});
+      try{await b.commit()}catch(e){if(e&&e.code==="permission-denied"&&tel){toast("Não foi possível liberar este celular. Ele pode já estar cadastrado em outra loja.");return}throw e}
+      toast(tel?nome+" já pode entrar no app com o celular "+fmtTel(tel)+".":"Cadastro salvo.");
+    });
+  },
+  login(f){
+    const tel=normTel(new FormData(f).get("tel"));
+    if(!tel){toast("Digite o celular com DDD. Ex.: (11) 99999-0000");return}
+    S.login={etapa:"tel",tel,busy:true};render();
+    (async()=>{
+      try{
+        if(!FB.rv)FB.rv=new RecaptchaVerifier(FB.auth,"recap",{size:"invisible"});
+        FB.conf=await signInWithPhoneNumber(FB.auth,tel,FB.rv);
+        S.login={etapa:"codigo",tel,busy:false};render();
+        const c=$("#fCod");if(c)c.focus();
+      }catch(e){
+        console.error(e);try{FB.rv&&FB.rv.clear()}catch(_){}FB.rv=null;$("#recap").innerHTML="";
+        S.login={etapa:"tel",tel,busy:false};render();toast(msgAuth(e));
+      }
+    })();
+  },
+  codigo(f){
+    const cod=String(new FormData(f).get("cod")||"").replace(/\D/g,"");
+    if(cod.length!==6){toast("O código tem 6 dígitos.");return}
+    S.login.busy=true;render();
+    FB.conf.confirm(cod).catch(e=>{console.error(e);S.login.busy=false;render();toast(e&&e.code==="auth/code-expired"?"O código venceu. Peça outro.":"Código incorreto. Confira o SMS e tente de novo.")});
+  },
+  novaLoja(f){
+    const fd=new FormData(f),nome=(fd.get("nome")||"").trim();if(!nome)return;
+    const sug=!!fd.get("sug");
+    grava("lojas",async()=>{
+      const ref=doc(collection(FB.db,"lojas"));
+      await setDoc(ref,{nome,membros:{},criada:new Date().toISOString()});
+      if(sug)await setDoc(doc(FB.db,"lojas/"+ref.id+"/config/rotina"),{itens:sugeridoItens()});
+      toast("Loja criada. Agora cadastre o gerente na aba Equipe.");
+      abrirLoja(ref.id);S.tab="loja";render();
+    });
+  },
+  nomeLoja(f){const nome=(new FormData(f).get("nome")||"").trim();if(nome)lojaUpdate({nome}).then(ok=>ok&&toast("Nome salvo."))}
+};
+
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]");if(!el)return;
+  const fn=acts[el.dataset.act];if(fn){e.preventDefault();fn(el)}
+});
+document.addEventListener("submit",e=>{
+  const f=e.target.closest("form[data-form]");if(!f)return;e.preventDefault();
+  const fn=forms[f.dataset.form];if(fn)fn(f);
+});
+document.addEventListener("input",e=>{
+  if(e.target.id!=="busca")return;
+  S.busca=e.target.value;
+  const l=$("#lista");if(l&&S._all)l.innerHTML=listaHtml(S._all,S._base);
+  const c=document.querySelector('[data-act="limparBusca"]');if(c)c.hidden=!S.busca;
+});
+document.addEventListener("change",e=>{
+  if(e.target.id==="fVira"){const b=$("#repBox");if(b)b.hidden=!e.target.checked}
+  if(e.target.id==="fFreq"){const b=$("#dayBox");if(b)b.hidden=e.target.value!=="dias"}
+  if(e.target.id==="fR"){const box=$("#novaPessoa"),nova=e.target.value==="__nova";if(box){box.hidden=!nova;$("#fNN").required=nova;if(nova)$("#fNN").focus()}}
+  if(e.target.id==="selPessoa"){const v=e.target.value;S.filtro=v?"pessoa":"todas";S.pessoa=v;render()}
+});
+
+/* ---------- assinaturas ---------- */
+function setDay(dk){
+  S.dk=dk;S.day=null;S.dayOk=false;S.dayExists=false;
+  if(unsub.day)unsub.day();
+  render();
+  unsub.day=dayRef(dk).onSnapshot(snap=>{
+    if(S.dk!==dk)return;
+    S.dayOk=true;S.dayExists=snap.exists;S.day=snap.exists?snap.data():null;
+    maybeCreateToday();render();
+  },dbErr);
+}
+function dbErr(e){console.error(e);toast(e&&e.code==="permission-denied"?"Seu acesso a esta loja foi alterado. Toque no seu nome e saia, ou recarregue.":"A conexão com a loja caiu. Recarregue a página.")}
+function msgAuth(e){
+  const c=(e&&e.code)||"";
+  return({"auth/invalid-phone-number":"Número inválido. Digite o DDD e o número.","auth/too-many-requests":"Muitas tentativas. Aguarde alguns minutos e tente de novo.","auth/quota-exceeded":"O limite de SMS do dia foi atingido. Tente mais tarde.","auth/billing-not-enabled":"O envio de SMS ainda não foi ativado no Firebase (plano Blaze).","auth/unauthorized-domain":"Este endereço ainda não foi autorizado no Firebase.","auth/operation-not-allowed":"O login por telefone ainda não foi ativado no Firebase.","auth/captcha-check-failed":"A verificação de segurança falhou. Recarregue a página e tente de novo."})[c]||("Não foi possível enviar o código. "+(c?"("+c+")":""));
+}
+function flat(o,pre,out){out=out||{};for(const k in o){const v=o[k],p=pre?pre+"."+k:k;if(v&&typeof v==="object"&&!Array.isArray(v)&&Object.keys(v).length)flat(v,p,out);else out[p]=v}return out}
+function wrapDoc(path){
+  const r=doc(FB.db,path);
+  return{
+    get:async()=>{const x=await getDoc(r);return{exists:x.exists(),data:()=>x.data()}},
+    set:d=>setDoc(r,d),
+    update:d=>updateDoc(r,flat(d)),
+    delete:()=>deleteDoc(r),
+    onSnapshot:(n,e)=>onSnapshot(r,x=>n({exists:x.exists(),data:()=>x.data()}),e)
+  };
+}
+const FB={};
+function fecharLoja(){
+  ["loja","rotina","day"].forEach(k=>{if(unsub[k]){unsub[k]();unsub[k]=null}});
+  S.loja=null;S.lojaOk=false;S.rotina=null;S.rotinaOk=false;S.day=null;S.dayOk=false;S.dayExists=false;S.ind=null;S.creating={};
+}
+function abrirLoja(id){
+  fecharLoja();S.lojaId=id;S.tab="hoje";S.dk=today();
+  if(S.isDir){try{localStorage.setItem("rotina-loja",id)}catch(e){}}
+  unsub.loja=S.db.doc("config/loja").onSnapshot(s=>{S.lojaOk=true;S.loja=s.exists?s.data():null;
+    if(S.loja&&!isGestor()&&S.filtro==="pessoa")S.filtro="minhas";render()},dbErr);
+  unsub.rotina=S.db.doc("config/rotina").onSnapshot(s=>{S.rotinaOk=true;S.rotina=s.exists?s.data():null;maybeCreateToday();render()},dbErr);
+  setDay(S.dk);
+}
+function limparSessao(){
+  fecharLoja();
+  if(unsub.lojas){unsub.lojas();unsub.lojas=null}
+  S.isDir=false;S.acesso=null;S.lojaId="";S.lojas=null;S.tel="";
+}
+async function aoEntrar(u){
+  S.auth="loading";S.tel=u.phoneNumber||"";render();
+  try{
+    const [adm,ac]=await Promise.all([getDoc(doc(FB.db,"admins/"+S.tel)),getDoc(doc(FB.db,"acessos/"+S.tel))]);
+    S.isDir=adm.exists();S.acesso=ac.exists()?ac.data():null;
+  }catch(e){
+    console.error(e);S.auth="erro";S.erro=e&&e.code==="permission-denied"?"As regras de segurança do banco ainda não foram publicadas no Firebase.":"Falha ao conectar ("+((e&&e.code)||"sem código")+"). Confira a internet.";render();return;
+  }
+  S.auth="in";
+  if(S.isDir){
+    unsub.lojas=onSnapshot(collection(FB.db,"lojas"),q=>{S.lojas=q.docs.map(d=>Object.assign({id:d.id},d.data()));render()},dbErr);
+    let ult="";try{ult=localStorage.getItem("rotina-loja")||""}catch(e){}
+    if(ult)abrirLoja(ult);else render();
+  }else if(S.acesso&&S.acesso.ativo!==false&&S.acesso.lojaId){
+    abrirLoja(S.acesso.lojaId);
+  }else render();
+}
+function boot(){
+  if(!firebaseConfig||!firebaseConfig.apiKey||/COLE|SUA_/.test(firebaseConfig.apiKey)){S.auth="config";render();return}
+  const app=initializeApp(firebaseConfig);
+  FB.auth=getAuth(app);FB.auth.languageCode="pt-BR";
+  FB.db=initializeFirestore(app,{ignoreUndefinedProperties:true});
+  FB.lojaRef=()=>doc(FB.db,"lojas/"+S.lojaId);
+  S.db={doc:p=>wrapDoc(p==="config/loja"?"lojas/"+S.lojaId:"lojas/"+S.lojaId+"/"+p)};
+  try{const f=localStorage.getItem("rotina-filtro");if(f)S.filtro=f}catch(e){}
+  onAuthStateChanged(FB.auth,u=>{
+    limparSessao();
+    if(!u){S.auth="out";S.login={etapa:"tel",tel:"",busy:false};render();return}
+    aoEntrar(u);
+  });
+  setInterval(()=>{
+    if(!S.lojaId)return;
+    if(S.dk!==today()&&S.dk===addDays(today(),-1)&&!sheet.open){setDay(today());return}
+    if(S.tab==="hoje"&&!sheet.open)render();
+  },60000);
+}
+addEventListener("pagehide",()=>{try{localStorage.setItem("rotina-filtro",S.filtro==="pessoa"?"todas":S.filtro)}catch(e){}});
+boot();
+})();
+</script>
+</body>
+</html>
