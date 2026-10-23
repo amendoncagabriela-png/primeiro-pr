@@ -656,7 +656,7 @@ function viewLojas(){
   else if(!S.lojas.length)h+='<div class="empty"><b>Nenhuma loja cadastrada</b>Crie a primeira unidade abaixo.</div>';
   else h+='<div class="list">'+S.lojas.slice().sort((a,b)=>(a.nome||"").localeCompare(b.nome||"")).map(l=>{const ms=Object.values(l.membros||{}).filter(m=>m&&m.ativo!==false);const g=ms.filter(m=>m.papel==="gerente").map(m=>m.nome);
     return'<button class="li" data-act="abrirLoja" data-id="'+esc(l.id)+'"><div class="grow"><div class="t">'+esc(l.nome||"Sem nome")+'</div><div class="s">'+esc((g.length?"Gerente: "+g.join(", "):"Sem gerente cadastrado")+" · "+ms.length+" pessoa(s)")+"</div></div>"+I.chev+"</button>"}).join("")+"</div>";
-  h+='<section class="sec"><h2>Nova loja</h2><form class="card" data-form="novaLoja" style="display:grid;gap:14px"><div class="field"><label for="fNovaLoja">Nome da unidade</label><input type="text" id="fNovaLoja" name="nome" maxlength="60" required placeholder="Ex.: BIN Embalagens · Centro"></div><label class="toggle"><input type="checkbox" id="fNovaSug" name="sug" checked> Começar com o checklist sugerido no treinamento (18 atividades)</label><button class="btn primary block">Criar loja</button></form></section>';
+  h+='<section class="sec"><h2>Nova loja</h2><form class="card" data-form="novaLoja" style="display:grid;gap:14px"><div class="field"><label for="fNovaLoja">Lojas, uma por linha</label><textarea id="fNovaLoja" name="nomes" rows="5" required placeholder="PIMENTAS; Ana Souza; ana@outlook.com&#10;GUAIANASES"></textarea><span class="help">Só o nome cria a loja. Para já cadastrar o gerente, escreva na mesma linha: loja; nome do gerente; e-mail.</span></div><label class="toggle"><input type="checkbox" id="fNovaSug" name="sug" checked> Começar com o checklist sugerido no treinamento (18 atividades)</label><button class="btn primary block">Criar</button></form></section>';
   return h+'<div class="sec"><button class="btn block" data-act="sair">Sair ('+esc(fmtId(S.tel))+")</button></div></div>";
 }
 
@@ -955,14 +955,28 @@ const forms={
     FB.conf.confirm(cod).catch(e=>{console.error(e);S.login.busy=false;render();toast(e&&e.code==="auth/code-expired"?"O código venceu. Peça outro.":"Código incorreto. Confira o SMS e tente de novo.")});
   },
   novaLoja(f){
-    const fd=new FormData(f),nome=(fd.get("nome")||"").trim();if(!nome)return;
-    const sug=!!fd.get("sug");
+    const fd=new FormData(f),sug=!!fd.get("sug");
+    const linhas=String(fd.get("nomes")||"").split(/\n/).map(l=>l.split(";").map(x=>x.trim())).filter(l=>l[0]);
+    if(!linhas.length)return;
+    const ruins=linhas.filter(l=>l[2]&&!normEmail(l[2]));
+    if(ruins.length){toast("E-mail inválido na linha de "+ruins[0][0]+". Confira e tente de novo.");return}
+    const existentes=new Set((S.lojas||[]).map(l=>norm(l.nome)));
     grava("lojas",async()=>{
-      const ref=doc(collection(FB.db,"lojas"));
-      await setDoc(ref,{nome,membros:{},criada:new Date().toISOString()});
-      if(sug)await setDoc(doc(FB.db,"lojas/"+ref.id+"/config/rotina"),{itens:sugeridoItens()});
-      toast("Loja criada. Agora cadastre o gerente na aba Equipe.");
-      abrirLoja(ref.id);S.tab="loja";render();
+      let criadas=0,puladas=[],ultima="";
+      for(const [nome,gNome,gEmail] of linhas){
+        if(existentes.has(norm(nome))){puladas.push(nome);continue}
+        const ref=doc(collection(FB.db,"lojas")),membros={},email=normEmail(gEmail);
+        const b=writeBatch(FB.db);
+        if(gNome){const k=gid("m_");membros[k]={k,nome:gNome,funcao:"Gerente",papel:"gerente",ativo:true,tel:"",email};
+          if(email)b.set(doc(FB.db,"acessos/"+email),{lojaId:ref.id,papel:"gerente",k,nome:gNome,ativo:true});}
+        b.set(ref,{nome,membros,criada:new Date().toISOString()});
+        if(sug)b.set(doc(FB.db,"lojas/"+ref.id+"/config/rotina"),{itens:sugeridoItens()});
+        await b.commit();
+        existentes.add(norm(nome));criadas++;ultima=ref.id;
+      }
+      f.reset();
+      toast((criadas===1?"1 loja criada.":criadas+" lojas criadas.")+(puladas.length?" Já existiam: "+puladas.join(", ")+".":""));
+      if(criadas===1&&linhas.length===1){abrirLoja(ultima);S.tab="loja";render()}
     });
   },
   nomeLoja(f){const nome=(new FormData(f).get("nome")||"").trim();if(nome)lojaUpdate({nome}).then(ok=>ok&&toast("Nome salvo."))}
