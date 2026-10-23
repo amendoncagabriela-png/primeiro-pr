@@ -231,7 +231,7 @@ dialog.sheet::backdrop{background:rgb(10 14 22 / .5)}
 
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {getAuth,onAuthStateChanged,RecaptchaVerifier,signInWithPhoneNumber,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getAuth,onAuthStateChanged,RecaptchaVerifier,signInWithPhoneNumber,signOut,GoogleAuthProvider,signInWithPopup} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,onSnapshot,collection,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {firebaseConfig} from "./firebase-config.js";
 (function(){
@@ -607,9 +607,9 @@ function viewLoja(){
   let h='<div class="wrap">';
   h+='<section class="sec"><h2>Equipe</h2><p class="hint">Cadastre quem trabalha na loja para direcionar tarefas. A pessoa não precisa de celular cadastrado para receber tarefas; o acesso ao app pode ser liberado depois. Também dá para cadastrar direto ao criar uma tarefa, em “Quem fará”.</p>';
   const ms=membros().sort((a,b)=>(a.papel==="gerente"?0:1)-(b.papel==="gerente"?0:1)||a.nome.localeCompare(b.nome));
-  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(m.tel?'<span class="pill ok">Entra com '+esc(fmtTel(m.tel))+"</span>":'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e celular.</div>';
+  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(idsDe(m).length?idsDe(m).map(i=>'<span class="pill ok">Entra com '+esc(fmtId(i))+"</span>").join(""):'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e celular ou e-mail Google.</div>';
   h+='<button class="btn primary" data-act="novoMembro">'+I.plus+"Cadastrar pessoa</button></section>";
-  h+='<section class="sec"><h2>Como dar acesso</h2><div class="card" style="display:grid;gap:8px"><div>1. Cadastre a pessoa com o <b>número de celular</b>.</div><div>2. Envie a ela o endereço do app.</div><div>3. Ela digita o celular, recebe um código por SMS e já entra no checklist desta loja.</div></div>'+
+  h+='<section class="sec"><h2>Como dar acesso</h2><div class="card" style="display:grid;gap:8px"><div>1. Cadastre a pessoa com o <b>número de celular</b> ou o <b>e-mail da conta Google</b>.</div><div>2. Envie a ela o endereço do app.</div><div>3. Ela entra com o celular (código por SMS) ou tocando em <b>Entrar com Google</b> e já cai no checklist desta loja.</div></div>'+
    '<p class="hint">Cada pessoa só enxerga a loja em que foi cadastrada.'+(p==="gerente"?" Apenas a diretoria pode cadastrar ou alterar gerentes.":"")+"</p></section>";
   if(p==="diretoria"||p==="gerente"){
     h+='<section class="sec"><h2>Unidade</h2><form class="card" data-form="nomeLoja" style="display:grid;gap:10px"><div class="field"><label for="fLoja">Nome da unidade</label><input type="text" id="fLoja" name="nome" maxlength="60" required value="'+esc(S.loja.nome||"")+'"></div><button class="btn">Salvar nome</button></form></section>';
@@ -619,13 +619,14 @@ function viewLoja(){
 
 function viewLogin(){
   const L=S.login;
-  let h='<div class="wrap"><div class="hero"><h1>Rotina BIN</h1><p>Checklist diário das lojas BIN Embalagens. Entre com o celular cadastrado pelo seu gerente ou pela diretoria.</p></div>';
+  let h='<div class="wrap"><div class="hero"><h1>Rotina BIN</h1><p>Checklist diário das lojas BIN Embalagens. Entre com o celular ou a conta Google cadastrados pelo seu gerente ou pela diretoria.</p></div>';
   if(L.etapa==="tel")h+='<form class="card" data-form="login" style="display:grid;gap:14px"><div class="field"><label for="fTel">Celular com DDD</label><input type="tel" id="fTel" name="tel" inputmode="tel" autocomplete="tel-national" required placeholder="(11) 99999-0000" value="'+esc(L.tel?fmtTel(L.tel):"")+'"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Enviando código…":"Receber código por SMS")+"</button></form>";
   else h+='<form class="card" data-form="codigo" style="display:grid;gap:14px"><p style="margin:0">Enviamos um código por SMS para <b>'+esc(fmtTel(L.tel))+'</b>.</p><div class="field"><label for="fCod">Código de 6 dígitos</label><input type="text" id="fCod" name="cod" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="font-size:1.4rem;letter-spacing:.3em;text-align:center"></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Conferindo…":"Entrar")+'</button><button type="button" class="btn block" data-act="trocarTel">Usar outro número</button></form>';
+  if(L.etapa==="tel")h+='<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem;margin:16px 0 12px"><span style="flex:1;height:1px;background:var(--line)"></span>ou<span style="flex:1;height:1px;background:var(--line)"></span></div><button type="button" class="btn block" data-act="google"'+(L.busy?" disabled":"")+'><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.4-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1-3.7 1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8l3.6-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>Entrar com Google</button>';
   return h+'<p class="hint" style="color:var(--muted);font-size:.85rem;margin-top:14px">Você continua conectado neste aparelho até tocar em Sair.</p></div>';
 }
 function viewSemAcesso(){
-  return'<div class="wrap"><div class="hero"><h1>Acesso não liberado</h1><p>O celular <b>'+esc(fmtTel(S.tel))+'</b> ainda não está cadastrado em nenhuma loja. Peça ao seu gerente para cadastrar este número na aba Equipe.</p></div><div class="row"><button class="btn" data-act="recarregar">Já fui cadastrado</button><button class="btn" data-act="sair">Sair</button></div></div>';
+  return'<div class="wrap"><div class="hero"><h1>Acesso não liberado</h1><p><b>'+esc(fmtId(S.tel))+'</b> ainda não está cadastrado em nenhuma loja. Peça ao seu gerente para cadastrar '+(String(S.tel).startsWith("+")?"este celular":"este e-mail")+' na aba Equipe.</p></div><div class="row"><button class="btn" data-act="recarregar">Já fui cadastrado</button><button class="btn" data-act="sair">Sair</button></div></div>';
 }
 function viewSemConfig(){
   return'<div class="wrap"><div class="hero"><h1>Falta configurar</h1><p>Preencha o arquivo <b>firebase-config.js</b> com os dados do projeto Firebase para o app funcionar.</p></div></div>';
@@ -640,7 +641,7 @@ function viewLojas(){
   else h+='<div class="list">'+S.lojas.slice().sort((a,b)=>(a.nome||"").localeCompare(b.nome||"")).map(l=>{const ms=Object.values(l.membros||{}).filter(m=>m&&m.ativo!==false);const g=ms.filter(m=>m.papel==="gerente").map(m=>m.nome);
     return'<button class="li" data-act="abrirLoja" data-id="'+esc(l.id)+'"><div class="grow"><div class="t">'+esc(l.nome||"Sem nome")+'</div><div class="s">'+esc((g.length?"Gerente: "+g.join(", "):"Sem gerente cadastrado")+" · "+ms.length+" pessoa(s)")+"</div></div>"+I.chev+"</button>"}).join("")+"</div>";
   h+='<section class="sec"><h2>Nova loja</h2><form class="card" data-form="novaLoja" style="display:grid;gap:14px"><div class="field"><label for="fNovaLoja">Nome da unidade</label><input type="text" id="fNovaLoja" name="nome" maxlength="60" required placeholder="Ex.: BIN Embalagens · Centro"></div><label class="toggle"><input type="checkbox" id="fNovaSug" name="sug" checked> Começar com o checklist sugerido no treinamento (18 atividades)</label><button class="btn primary block">Criar loja</button></form></section>';
-  return h+'<div class="sec"><button class="btn block" data-act="sair">Sair ('+esc(fmtTel(S.tel))+")</button></div></div>";
+  return h+'<div class="sec"><button class="btn block" data-act="sair">Sair ('+esc(fmtId(S.tel))+")</button></div></div>";
 }
 
 /* ---------- sheets ---------- */
@@ -732,10 +733,11 @@ function sheetMembro(k){
   if(m&&m.papel==="gerente"&&lockGerente){openSheet(m.nome,'<p class="hint">Apenas a diretoria pode alterar o cadastro de gerentes.</p>');return}
   let h='<form data-form="membro" style="display:grid;gap:14px"><div class="field"><label for="fMNome">Nome</label><input type="text" id="fMNome" name="nome" maxlength="50" required value="'+esc(m?m.nome:"")+'"></div>'+
    '<div class="field"><label for="fMFun">Função</label><input type="text" id="fMFun" name="funcao" maxlength="40" value="'+esc(m?m.funcao||"":"")+'" placeholder="Ex.: Subgerente, Caixa, Estoquista"></div>'+
-   '<div class="field"><label for="fMTel">Celular para entrar no app (opcional)</label><input type="tel" id="fMTel" name="tel" inputmode="tel" placeholder="(11) 99999-0000" value="'+esc(m&&m.tel?fmtTel(m.tel):"")+'"><span class="help">Com o celular cadastrado, a pessoa entra no app com um código enviado por SMS.</span></div>';
+   '<div class="field"><label for="fMTel">Celular para entrar no app (opcional)</label><input type="tel" id="fMTel" name="tel" inputmode="tel" placeholder="(11) 99999-0000" value="'+esc(m&&m.tel?fmtTel(m.tel):"")+'"><span class="help">Com o celular cadastrado, a pessoa entra no app com um código enviado por SMS.</span></div>'+
+   '<div class="field"><label for="fMEmail">E-mail da conta Google (opcional)</label><input type="email" id="fMEmail" name="email" inputmode="email" autocomplete="off" placeholder="nome@gmail.com" value="'+esc(m&&m.email||"")+'"><span class="help">Com o e-mail cadastrado, a pessoa entra tocando em “Entrar com Google”, sem SMS.</span></div>';
   if(!lockGerente)h+='<div class="field"><span class="lbl">Papel</span><div class="seg"><label><input type="radio" name="papel" value="colaborador"'+(!m||m.papel!=="gerente"?" checked":"")+'><span>Colaborador</span></label><label><input type="radio" name="papel" value="gerente"'+(m&&m.papel==="gerente"?" checked":"")+'><span>Gerente</span></label></div><span class="help">Gerente monta a rotina, direciona tarefas e vê os indicadores. Colaborador vê o checklist da loja e marca as atividades.</span></div>';
   h+='<button class="btn primary block">'+(m?"Salvar":"Cadastrar")+"</button>";
-  if(m&&m.tel)h+='<button type="button" class="btn block" data-act="desvincular">Tirar o acesso ao app</button>';
+  if(idsDe(m).length)h+='<button type="button" class="btn block" data-act="desvincular">Tirar o acesso ao app</button>';
   if(m)h+='<button type="button" class="btn danger block" data-act="excluirMembro">Remover da equipe</button>';
   openSheet(m?m.nome:"Cadastrar pessoa",h+"</form>",{tipo:"membro",k});
 }
@@ -744,6 +746,9 @@ function sheetMembro(k){
 function sugeridoItens(){const itens={};SUGERIDO.forEach((s,i)=>{itens["s"+pad(i)]={t:s[1],m:s[0],area:s[2],h:s[3],r:"gerente",dias:[1,2,3,4,5,6],ev:"",p:false,ord:i}});return itens}
 function normTel(v){let d=String(v||"").replace(/\D/g,"");if(d.length===10||d.length===11)d="55"+d;return d.length>=12&&d.length<=13?"+"+d:""}
 function fmtTel(t){const d=String(t||"").replace(/\D/g,"").replace(/^55/,"");if(d.length===11)return"("+d.slice(0,2)+") "+d.slice(2,7)+"-"+d.slice(7);if(d.length===10)return"("+d.slice(0,2)+") "+d.slice(2,6)+"-"+d.slice(6);return t||""}
+function normEmail(v){const e=String(v||"").trim().toLowerCase();return /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(e)?e:""}
+const fmtId=id=>String(id||"").startsWith("+")?fmtTel(id):String(id||"");
+const idsDe=m=>m?[m.tel,m.email].filter(Boolean):[];
 function acessoBatch(fn){
   return grava("acessos",async()=>{const b=writeBatch(FB.db);fn(b);await b.commit()});
 }
@@ -814,11 +819,11 @@ const acts={
   novoMembro(){sheetMembro(null)},
   membro(el){sheetMembro(el.dataset.k)},
   excluirMembro(){const k=sheetCtx.k,m=S.loja.membros[k];closeSheet();
-    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{ativo:false,tel:""}}}));if(m&&m.tel)b.delete(doc(FB.db,"acessos/"+m.tel))}).then(ok=>ok&&toast("Pessoa removida da equipe."))},
+    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{ativo:false,tel:"",email:""}}}));idsDe(m).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)))}).then(ok=>ok&&toast("Pessoa removida da equipe."))},
   desvincular(){const k=sheetCtx.k,m=S.loja.membros[k];closeSheet();
-    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{tel:""}}}));if(m&&m.tel)b.delete(doc(FB.db,"acessos/"+m.tel))}).then(ok=>ok&&toast("Acesso ao app retirado."))},
+    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{tel:"",email:""}}}));idsDe(m).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)))}).then(ok=>ok&&toast("Acesso ao app retirado."))},
   menu(){
-    let h='<p style="margin:0;color:var(--muted)">Conectado com o celular <b style="color:var(--ink)">'+esc(fmtTel(S.tel))+"</b></p>";
+    let h='<p style="margin:0;color:var(--muted)">Conectado com <b style="color:var(--ink)">'+esc(fmtId(S.tel))+"</b></p>";
     if(papel()==="diretoria")h+='<button class="btn block" data-act="lojas">Trocar de loja</button>';
     h+='<button class="btn danger block" data-act="sair">Sair</button>';
     openSheet("Sua conta",h);
@@ -826,6 +831,16 @@ const acts={
   lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
   abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
   sair(){closeSheet();signOut(FB.auth)},
+  google(){
+    S.login.busy=true;render();
+    const prov=new GoogleAuthProvider();prov.setCustomParameters({prompt:"select_account"});
+    signInWithPopup(FB.auth,prov).catch(e=>{
+      console.error(e);S.login.busy=false;render();
+      const c=e&&e.code;
+      if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request")return;
+      toast(c==="auth/popup-blocked"?"O navegador bloqueou a janela do Google. Permita pop-ups para este site e tente de novo.":c==="auth/operation-not-allowed"?"O login com Google ainda não foi ativado no Firebase.":msgAuth(e));
+    });
+  },
   recarregar(){location.reload()},
   trocarTel(){S.login={etapa:"tel",tel:S.login.tel,busy:false};render()},
   fechar(){closeSheet()}
@@ -872,17 +887,20 @@ const forms={
     if(telRaw&&!tel){toast("Celular inválido. Digite o DDD e o número.");return}
     const k=(sheetCtx&&sheetCtx.k)||gid("m_"),m0=S.loja.membros[k];
     const pap=fd.get("papel")||(m0&&m0.papel)||"colaborador";
-    const outro=membros().find(m=>m.tel&&m.tel===tel&&m.k!==k);
-    if(tel&&outro){toast("Este celular já está cadastrado para "+outro.nome+".");return}
-    const patch={k,nome,funcao:(fd.get("funcao")||"").trim(),ativo:true,papel:pap,tel};
+    const emRaw=(fd.get("email")||"").trim(),email=emRaw?normEmail(emRaw):"";
+    if(emRaw&&!email){toast("E-mail inválido. Confira o endereço.");return}
+    const outro=membros().find(m=>m.k!==k&&((tel&&m.tel===tel)||(email&&m.email===email)));
+    if(outro){toast("Este celular ou e-mail já está cadastrado para "+outro.nome+".");return}
+    const patch={k,nome,funcao:(fd.get("funcao")||"").trim(),ativo:true,papel:pap,tel,email};
+    const novos=[tel,email].filter(Boolean);
     closeSheet();
     grava("acessos",async()=>{
       const b=writeBatch(FB.db);
       b.update(FB.lojaRef(),flat({membros:{[k]:patch}}));
-      if(m0&&m0.tel&&m0.tel!==tel)b.delete(doc(FB.db,"acessos/"+m0.tel));
-      if(tel)b.set(doc(FB.db,"acessos/"+tel),{lojaId:S.lojaId,papel:pap,k,nome,ativo:true});
-      try{await b.commit()}catch(e){if(e&&e.code==="permission-denied"&&tel){toast("Não foi possível liberar este celular. Ele pode já estar cadastrado em outra loja.");return}throw e}
-      toast(tel?nome+" já pode entrar no app com o celular "+fmtTel(tel)+".":"Cadastro salvo.");
+      idsDe(m0).filter(i=>!novos.includes(i)).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)));
+      novos.forEach(i=>b.set(doc(FB.db,"acessos/"+i),{lojaId:S.lojaId,papel:pap,k,nome,ativo:true}));
+      try{await b.commit()}catch(e){if(e&&e.code==="permission-denied"&&novos.length){toast("Não foi possível liberar este acesso. O celular ou e-mail pode já estar cadastrado em outra loja.");return}throw e}
+      toast(novos.length?nome+" já pode entrar no app com "+novos.map(fmtId).join(" ou ")+".":"Cadastro salvo.");
     });
   },
   login(f){
@@ -988,7 +1006,8 @@ function limparSessao(){
   S.isDir=false;S.acesso=null;S.lojaId="";S.lojas=null;S.tel="";
 }
 async function aoEntrar(u){
-  S.auth="loading";S.tel=u.phoneNumber||"";render();
+  S.auth="loading";S.tel=u.phoneNumber||(u.email&&u.emailVerified!==false?u.email.toLowerCase():"");render();
+  if(!S.tel){S.auth="erro";S.erro="Esta conta não tem celular nem e-mail confirmado.";render();return}
   try{
     const [adm,ac]=await Promise.all([getDoc(doc(FB.db,"admins/"+S.tel)),getDoc(doc(FB.db,"acessos/"+S.tel))]);
     S.isDir=adm.exists();S.acesso=ac.exists()?ac.data():null;
