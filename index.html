@@ -340,6 +340,7 @@ function nomeDe(k){
   return m?m.nome:"Sem responsável";
 }
 function cabeMim(it){
+  if(S.verComo){const m=S.loja&&S.loja.membros&&S.loja.membros[it.r];return it.r==="gerente"||it.r==="todos"||!!(m&&m.papel==="gerente")}
   const k=meuKey(),p=papel();
   return it.r===k||it.r==="todos"||(it.r==="gerente"&&(p==="gerente"||p==="diretoria"));
 }
@@ -453,7 +454,7 @@ function render0(){
   top.hidden=false;
   const roleLbl={diretoria:"Diretoria",gerente:"Gerente",colaborador:(meuMembro()||{}).nome||"Colaborador"}[p];
   const showDate=S.tab==="hoje";
-  top.innerHTML=(S.verComo?'<div class="preview"><div class="wrap"><span>Visualizando como <b>'+esc(nomeDe(S.verComo.k))+"</b> · "+(S.verComo.papel==="gerente"?"Gerente":"Colaborador")+'. Nada é salvo.</span><button data-act="sairPreview">Voltar à diretoria</button></div></div>':"")+'<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+" ▾</button></div>"+
+  top.innerHTML=(S.verComo?'<div class="preview"><div class="wrap"><span>Visualizando como <b>gerente</b> desta loja. Nada é salvo.</span><button data-act="sairPreview">Voltar à diretoria</button></div></div>':"")+'<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+" ▾</button></div>"+
    (showDate?'<div class="datebar"><button class="iconbtn" data-act="dia" data-n="-1" aria-label="Dia anterior">'+I.left+'</button><div class="d">'+esc(fmtDia(S.dk))+"<small>"+(S.dk===today()?"Hoje":S.dk>today()?"Planejamento":"Dia encerrado")+'</small></div><button class="iconbtn" data-act="dia" data-n="1" aria-label="Próximo dia">'+I.right+"</button>"+(S.dk!==today()?'<button class="todaybtn" data-act="hoje">Hoje</button>':"")+"</div>":"")+"</div>";
   if(isGestor()){
     tabs.hidden=false;
@@ -862,23 +863,18 @@ const acts={
     acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{tel:"",email:""}}}));idsDe(m).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)))}).then(ok=>ok&&toast("Acesso ao app retirado."))},
   menu(){
     let h='<p style="margin:0;color:var(--muted)">Conectado com <b style="color:var(--ink)">'+esc(fmtId(S.tel))+"</b></p>";
-    if(S.isDir&&S.loja){
-      const pessoas=membros().filter(m=>m.papel==="gerente").concat(membros().filter(m=>m.papel!=="gerente"));
-      h+='<div class="field"><label for="fVerComo">Ver a tela como</label><select id="fVerComo"><option value="">Diretoria (você)</option>'+pessoas.map(m=>'<option value="'+esc(m.k)+'"'+(S.verComo&&S.verComo.k===m.k?" selected":"")+">"+esc(m.nome)+" · "+(m.papel==="gerente"?"Gerente":"Colaborador")+"</option>").join("")+'</select><span class="help">Mostra exatamente o que a pessoa vê nesta loja. Nada é salvo enquanto estiver visualizando.</span></div><button class="btn block" data-act="verComo">Visualizar</button>';
-    }
+    if(S.isDir&&S.loja)h+=S.verComo?'<button class="btn block" data-act="sairPreview">Voltar à visão da diretoria</button>':'<button class="btn block" data-act="verComo">Ver como gerente</button><p class="hint" style="margin:-6px 0 0;font-size:.8rem;color:var(--muted)">Mostra a tela que qualquer gerente desta loja vê. Nada é salvo enquanto estiver visualizando.</p>';
     if(S.isDir)h+='<button class="btn block" data-act="lojas">Trocar de loja</button>';
     h+='<button class="btn danger block" data-act="sair">Sair</button>';
     openSheet("Sua conta",h);
   },
   verComo(){
-    const k=($("#fVerComo")||{}).value||"";closeSheet();
-    if(!k){acts.sairPreview();return}
-    const m=S.loja.membros[k];if(!m)return;
+    closeSheet();
     if(!S.verComo)S.tabDir=S.tab;
-    S.verComo={k,papel:m.papel==="gerente"?"gerente":"colaborador"};
-    S.tab="hoje";S.filtro="minhas";S.pessoa="";S.ind=null;render();scrollTo(0,0);
+    S.verComo={k:"gerente",papel:"gerente"};
+    S.tab="hoje";S.filtro="todas";S.pessoa="";S.ind=null;render();scrollTo(0,0);
   },
-  sairPreview(){S.verComo=null;S.tab=S.tabDir||"hoje";S.filtro="todas";S.ind=null;render();maybeCreateToday();scrollTo(0,0)},
+  sairPreview(){closeSheet();S.verComo=null;S.tab=S.tabDir||"hoje";S.filtro="todas";S.ind=null;render();maybeCreateToday();scrollTo(0,0)},
   lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
   abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
   sair(){closeSheet();signOut(FB.auth)},
