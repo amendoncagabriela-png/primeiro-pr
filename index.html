@@ -239,6 +239,11 @@ import {firebaseConfig} from "./firebase-config.js";
 
 /* Login por SMS: o código continua no app, mas fica escondido. Mude para true para mostrar de novo. */
 const MOSTRAR_SMS=false;
+/* No iPhone/iPad e no Safari, o login com Google falha quando o app não está no mesmo domínio do Firebase
+   (bloqueio de armazenamento entre sites). Nesses navegadores o botão do Google fica escondido. */
+const UA=navigator.userAgent||"";
+const NAVEGADOR_APPLE=/iPad|iPhone|iPod/.test(UA)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)||/^((?!chrome|chromium|android|crios|fxios|edg).)*safari/i.test(UA);
+const MOSTRAR_GOOGLE=!NAVEGADOR_APPLE;
 const LOGIN_INICIAL=()=>({etapa:"email",email:"",tel:"",busy:false});
 
 /* ---------- conteúdo de referência: treinamento Mão na Massa (03/09/2026) ---------- */
@@ -628,7 +633,7 @@ function viewLogin(){
   const gbtn='<button type="button" class="btn block" data-act="google"'+(L.busy?" disabled":"")+'><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.4-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1-3.7 1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2.2a11 11 0 0 0 0 9.8l3.6-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>Entrar com Google</button>';
   if(L.etapa==="email"){
     h+='<form class="card" data-form="email" style="display:grid;gap:14px"><div class="field"><label for="fEmail">Seu e-mail</label><input type="email" id="fEmail" name="email" inputmode="email" autocomplete="email" required placeholder="nome@outlook.com" value="'+esc(L.email)+'"><span class="help">Pode ser Gmail, Outlook, Hotmail ou outro. Você recebe um link para entrar, sem senha.</span></div><button class="btn primary block"'+(L.busy?" disabled":"")+">"+(L.busy?"Enviando…":"Receber link de acesso")+"</button></form>";
-    h+=sep+gbtn;
+    if(MOSTRAR_GOOGLE)h+=sep+gbtn;
     if(MOSTRAR_SMS)h+='<button type="button" class="btn block" data-act="loginTel" style="margin-top:8px">Entrar com celular (SMS)</button>';
   }else if(L.etapa==="enviado"){
     h+='<div class="card" style="display:grid;gap:12px"><b style="font-family:var(--f-display);font-size:1.15rem">Confira seu e-mail</b><p style="margin:0">Enviamos um link de acesso para <b>'+esc(L.email)+'</b>. Abra a mensagem <b>neste mesmo aparelho</b> e toque no link para entrar.</p><p class="help" style="margin:0;font-size:.85rem;color:var(--muted)">Não chegou em 2 minutos? Procure na caixa de spam ou lixo eletrônico. O remetente é noreply@rotina-lojas.firebaseapp.com.</p><button type="button" class="btn block" data-act="reenviarLink">Enviar de novo</button><button type="button" class="btn block" data-act="trocarEmail">Usar outro e-mail</button></div>';
@@ -865,6 +870,7 @@ const acts={
       console.error(e);S.login.busy=false;render();
       const c=e&&e.code;
       if(c==="auth/popup-closed-by-user"||c==="auth/cancelled-popup-request")return;
+      if(/missing initial state|sessionStorage/i.test((e&&e.message)||"")){toast("O login com Google não funciona neste navegador. Entre com o link por e-mail.");return}
       toast(c==="auth/popup-blocked"?"O navegador bloqueou a janela do Google. Permita pop-ups para este site e tente de novo.":c==="auth/operation-not-allowed"?"O login com Google ainda não foi ativado no Firebase.":msgAuth(e));
     });
   },
