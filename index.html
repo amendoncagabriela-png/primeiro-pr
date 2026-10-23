@@ -184,7 +184,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .field{display:grid;gap:6px}
 .field label,.field .lbl{font-weight:700;font-size:.9rem}
 .field .help{font-size:.8rem;color:var(--muted)}
-.field input[type=text],.field input[type=time],.field input[type=date],.field select,.field textarea{width:100%;min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.field input[type=text],.field input[type=email],.field input[type=tel],.field input[type=time],.field input[type=date],.field select,.field textarea{width:100%;min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
 .field textarea{min-height:76px;resize:vertical}
 .daypick{display:flex;gap:6px;flex-wrap:wrap}
 .daypick label{flex:1 1 40px;min-width:40px}
@@ -611,7 +611,7 @@ function viewLoja(){
   let h='<div class="wrap">';
   h+='<section class="sec"><h2>Equipe</h2><p class="hint">Cadastre quem trabalha na loja para direcionar tarefas. A pessoa não precisa de e-mail cadastrado para receber tarefas; o acesso ao app pode ser liberado depois. Também dá para cadastrar direto ao criar uma tarefa, em “Quem fará”.</p>';
   const ms=membros().sort((a,b)=>(a.papel==="gerente"?0:1)-(b.papel==="gerente"?0:1)||a.nome.localeCompare(b.nome));
-  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(idsDe(m).length?idsDe(m).map(i=>'<span class="pill ok">Entra com '+esc(fmtId(i))+"</span>").join(""):'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e e-mail.</div>';
+  h+=ms.length?'<div class="list">'+ms.map(m=>'<button class="li" data-act="membro" data-k="'+esc(m.k)+'"><div class="grow"><div class="t">'+esc(m.nome)+'</div><div class="s">'+esc([m.papel==="gerente"?"Gerente":"Colaborador",m.funcao].filter(Boolean).join(" · "))+'</div><div class="meta">'+(idsDe(m).length?(m.bloqueado?'<span class="pill bad">Acesso bloqueado</span>':idsDe(m).map(i=>'<span class="pill ok">Entra com '+esc(fmtId(i))+"</span>").join("")):'<span class="pill">Sem acesso ao app</span>')+"</div></div>"+I.chev+"</button>").join("")+"</div>":'<div class="empty"><b>Nenhuma pessoa cadastrada</b>Cadastre a equipe com nome, função e e-mail.</div>';
   h+='<button class="btn primary" data-act="novoMembro">'+I.plus+"Cadastrar pessoa</button></section>";
   h+='<section class="sec"><h2>Como dar acesso</h2><div class="card" style="display:grid;gap:8px"><div>1. Cadastre a pessoa com o <b>e-mail</b> dela (Gmail, Outlook, Hotmail ou outro).</div><div>2. Envie a ela o endereço do app.</div><div>3. Ela digita o e-mail, recebe um link de acesso e já entra no checklist desta loja.</div></div>'+
    '<p class="hint">Cada pessoa só enxerga a loja em que foi cadastrada.'+(p==="gerente"?" Apenas a diretoria pode cadastrar ou alterar gerentes.":"")+"</p></section>";
@@ -753,7 +753,8 @@ function sheetMembro(k){
    '<div class="field"><label for="fMEmail">E-mail para entrar no app (opcional)</label><input type="email" id="fMEmail" name="email" inputmode="email" autocomplete="off" placeholder="nome@outlook.com" value="'+esc(m&&m.email||"")+'"><span class="help">Pode ser Gmail, Outlook, Hotmail ou outro. A pessoa recebe um link de acesso nesse e-mail; se for uma conta Google, também pode tocar em “Entrar com Google”.</span></div>';
   if(!lockGerente)h+='<div class="field"><span class="lbl">Papel</span><div class="seg"><label><input type="radio" name="papel" value="colaborador"'+(!m||m.papel!=="gerente"?" checked":"")+'><span>Colaborador</span></label><label><input type="radio" name="papel" value="gerente"'+(m&&m.papel==="gerente"?" checked":"")+'><span>Gerente</span></label></div><span class="help">Gerente monta a rotina, direciona tarefas e vê os indicadores. Colaborador vê o checklist da loja e marca as atividades.</span></div>';
   h+='<button class="btn primary block">'+(m?"Salvar":"Cadastrar")+"</button>";
-  if(idsDe(m).length)h+='<button type="button" class="btn block" data-act="desvincular">Tirar o acesso ao app</button>';
+  if(idsDe(m).length)h+=m.bloqueado?'<button type="button" class="btn ok block" data-act="bloquear" data-v="0">Reativar o acesso ao app</button>':'<button type="button" class="btn block" data-act="bloquear" data-v="1">Bloquear o acesso ao app</button>';
+  if(m&&p==="diretoria"&&(S.lojas||[]).length>1)h+='<button type="button" class="btn block" data-act="transferir">Transferir para outra loja</button>';
   if(m)h+='<button type="button" class="btn danger block" data-act="excluirMembro">Remover da equipe</button>';
   openSheet(m?m.nome:"Cadastrar pessoa",h+"</form>",{tipo:"membro",k});
 }
@@ -836,6 +837,16 @@ const acts={
   membro(el){sheetMembro(el.dataset.k)},
   excluirMembro(){const k=sheetCtx.k,m=S.loja.membros[k];closeSheet();
     acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{ativo:false,tel:"",email:""}}}));idsDe(m).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)))}).then(ok=>ok&&toast("Pessoa removida da equipe."))},
+  bloquear(el){
+    const k=sheetCtx.k,m=S.loja.membros[k],bloq=el.dataset.v==="1";closeSheet();
+    acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{bloqueado:bloq}}}));idsDe(m).forEach(i=>b.update(doc(FB.db,"acessos/"+i),{ativo:!bloq}))})
+      .then(ok=>ok&&toast(bloq?m.nome+" não consegue mais entrar no app. O histórico de tarefas continua.":"Acesso de "+m.nome+" reativado."));
+  },
+  transferir(){
+    const k=sheetCtx.k,m=S.loja.membros[k];
+    const outras=(S.lojas||[]).filter(l=>l.id!==S.lojaId).sort((a,b)=>(a.nome||"").localeCompare(b.nome||""));
+    openSheet("Transferir "+m.nome,'<form data-form="transferir" style="display:grid;gap:14px"><p style="margin:0;color:var(--muted)">'+esc(m.nome)+(m.papel==="gerente"?" (gerente)":"")+' sai da equipe de <b style="color:var(--ink)">'+esc(S.loja.nome)+'</b> e passa a entrar na loja escolhida. As tarefas já registradas continuam no histórico desta loja.</p><div class="field"><label for="fDest">Nova loja</label><select id="fDest" name="dest" required>'+outras.map(l=>'<option value="'+esc(l.id)+'">'+esc(l.nome)+"</option>").join("")+'</select></div><button class="btn primary block">Transferir</button></form>',{tipo:"transferir",k});
+  },
   desvincular(){const k=sheetCtx.k,m=S.loja.membros[k];closeSheet();
     acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{tel:"",email:""}}}));idsDe(m).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)))}).then(ok=>ok&&toast("Acesso ao app retirado."))},
   menu(){
@@ -900,6 +911,16 @@ const forms={
     const motivo=(new FormData(f).get("motivo")||"").trim();if(!motivo)return;
     patchItem(sheetCtx.id,{st:"nao",motivo,pm:meuKey(),em:new Date().toISOString()});closeSheet();
   },
+  transferir(f){
+    const k=sheetCtx.k,m=S.loja.membros[k],dest=new FormData(f).get("dest");if(!dest||!m)return;
+    const destino=(S.lojas||[]).find(l=>l.id===dest);const nk=gid("m_");
+    closeSheet();
+    acessoBatch(b=>{
+      b.update(FB.lojaRef(),flat({membros:{[k]:{ativo:false,tel:"",email:"",transferidoPara:dest}}}));
+      b.update(doc(FB.db,"lojas/"+dest),flat({membros:{[nk]:{k:nk,nome:m.nome,funcao:m.funcao||"",papel:m.papel||"colaborador",tel:m.tel||"",email:m.email||"",ativo:true,bloqueado:!!m.bloqueado}}}));
+      idsDe(m).forEach(i=>b.set(doc(FB.db,"acessos/"+i),{lojaId:dest,papel:m.papel||"colaborador",k:nk,nome:m.nome,ativo:!m.bloqueado}));
+    }).then(ok=>ok&&toast(m.nome+" foi transferido(a) para "+((destino&&destino.nome)||"a nova loja")+"."));
+  },
   membro(f){
     const fd=new FormData(f),nome=(fd.get("nome")||"").trim();if(!nome)return;
     const telRaw=(fd.get("tel")||"").trim(),tel=telRaw?normTel(telRaw):"";
@@ -917,7 +938,7 @@ const forms={
       const b=writeBatch(FB.db);
       b.update(FB.lojaRef(),flat({membros:{[k]:patch}}));
       idsDe(m0).filter(i=>!novos.includes(i)).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)));
-      novos.forEach(i=>b.set(doc(FB.db,"acessos/"+i),{lojaId:S.lojaId,papel:pap,k,nome,ativo:true}));
+      novos.forEach(i=>b.set(doc(FB.db,"acessos/"+i),{lojaId:S.lojaId,papel:pap,k,nome,ativo:!(m0&&m0.bloqueado)}));
       try{await b.commit()}catch(e){if(e&&e.code==="permission-denied"&&novos.length){toast("Não foi possível liberar este acesso. O celular ou e-mail pode já estar cadastrado em outra loja.");return}throw e}
       toast(novos.length?nome+" já pode entrar no app com "+novos.map(fmtId).join(" ou ")+".":"Cadastro salvo.");
     });
