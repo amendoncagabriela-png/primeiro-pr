@@ -213,6 +213,10 @@ dialog.sheet::backdrop{background:rgb(10 14 22 / .5)}
 
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom,0px));z-index:20;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;display:flex;gap:12px;align-items:center;max-width:calc(100% - 32px);font-size:.92rem;box-shadow:0 8px 24px rgb(0 0 0 / .25)}
 .toast button{background:none;border:0;color:var(--bg);font-weight:700;text-decoration:underline;padding:4px}
+.preview{background:var(--warn-soft);color:var(--ink);border-bottom:1px solid var(--warn)}
+.preview .wrap{display:flex;align-items:center;gap:10px;padding-block:8px;font-size:.85rem}
+.preview span{flex:1;min-width:0}
+.preview button{flex:none;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--warn);background:var(--surface);color:var(--warn);font-weight:700;font-size:.8rem}
 .hero{padding-block:28px 10px;display:grid;gap:12px}
 .hero h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:2.2rem;line-height:1;text-transform:uppercase;text-wrap:balance}
 .hero p{margin:0;color:var(--muted);max-width:56ch}
@@ -320,13 +324,14 @@ const S={db:null,auth:"loading",tel:"",isDir:false,acesso:null,lojaId:"",lojas:n
 const unsub={};
 
 const membros=()=>Object.values((S.loja&&S.loja.membros)||{}).filter(m=>m&&m.ativo!==false);
-const meuMembro=()=>S.acesso?membros().find(m=>m.k===S.acesso.k)||null:null;
+const meuMembro=()=>S.verComo&&S.loja?(S.loja.membros||{})[S.verComo.k]||null:S.acesso?membros().find(m=>m.k===S.acesso.k)||null:null;
 function papel(){
+  if(S.isDir&&S.verComo) return S.verComo.papel;
   if(S.isDir) return "diretoria";
   return S.acesso&&S.acesso.ativo!==false?(S.acesso.papel||"colaborador"):null;
 }
 const isGestor=()=>{const p=papel();return p==="diretoria"||p==="gerente"};
-const meuKey=()=>S.isDir?"diretoria":(S.acesso&&S.acesso.k)||"";
+const meuKey=()=>S.isDir?(S.verComo?S.verComo.k:"diretoria"):(S.acesso&&S.acesso.k)||"";
 function nomeDe(k){
   if(k==="todos")return"Toda a equipe";
   if(k==="gerente")return"Gerente";
@@ -390,6 +395,7 @@ function itensDoDia(){
 /* ---------- escrita ---------- */
 const fila={};
 function grava(path,fn){
+  if(S.verComo){toast("Modo visualização: nada é salvo. Toque em “Voltar à diretoria” para editar.");return Promise.resolve(false)}
   const p=(fila[path]||Promise.resolve()).then(fn).then(()=>true).catch(e=>{
     console.error(e);
     const c=e&&e.code;
@@ -409,7 +415,7 @@ function patchItem(id,patch){
   return grava("dias/"+dk,async()=>{await ensureDay(dk);await dayRef(dk).update({itens:{[id]:patch}});});
 }
 function maybeCreateToday(){
-  if(!S.db||!S.rotinaOk||!S.dayOk||S.dayExists||S.dk!==today()||!papel()||S.creating[S.dk])return;
+  if(S.verComo||!S.db||!S.rotinaOk||!S.dayOk||S.dayExists||S.dk!==today()||!papel()||S.creating[S.dk])return;
   if(!Object.keys(genItens(S.dk)).length)return;
   S.creating[S.dk]=true;
   const dk=S.dk;
@@ -447,7 +453,7 @@ function render0(){
   top.hidden=false;
   const roleLbl={diretoria:"Diretoria",gerente:"Gerente",colaborador:(meuMembro()||{}).nome||"Colaborador"}[p];
   const showDate=S.tab==="hoje";
-  top.innerHTML='<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+" ▾</button></div>"+
+  top.innerHTML=(S.verComo?'<div class="preview"><div class="wrap"><span>Visualizando como <b>'+esc(nomeDe(S.verComo.k))+"</b> · "+(S.verComo.papel==="gerente"?"Gerente":"Colaborador")+'. Nada é salvo.</span><button data-act="sairPreview">Voltar à diretoria</button></div></div>':"")+'<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+" ▾</button></div>"+
    (showDate?'<div class="datebar"><button class="iconbtn" data-act="dia" data-n="-1" aria-label="Dia anterior">'+I.left+'</button><div class="d">'+esc(fmtDia(S.dk))+"<small>"+(S.dk===today()?"Hoje":S.dk>today()?"Planejamento":"Dia encerrado")+'</small></div><button class="iconbtn" data-act="dia" data-n="1" aria-label="Próximo dia">'+I.right+"</button>"+(S.dk!==today()?'<button class="todaybtn" data-act="hoje">Hoje</button>':"")+"</div>":"")+"</div>";
   if(isGestor()){
     tabs.hidden=false;
@@ -856,10 +862,23 @@ const acts={
     acessoBatch(b=>{b.update(FB.lojaRef(),flat({membros:{[k]:{tel:"",email:""}}}));idsDe(m).forEach(i=>b.delete(doc(FB.db,"acessos/"+i)))}).then(ok=>ok&&toast("Acesso ao app retirado."))},
   menu(){
     let h='<p style="margin:0;color:var(--muted)">Conectado com <b style="color:var(--ink)">'+esc(fmtId(S.tel))+"</b></p>";
-    if(papel()==="diretoria")h+='<button class="btn block" data-act="lojas">Trocar de loja</button>';
+    if(S.isDir&&S.loja){
+      const pessoas=membros().filter(m=>m.papel==="gerente").concat(membros().filter(m=>m.papel!=="gerente"));
+      h+='<div class="field"><label for="fVerComo">Ver a tela como</label><select id="fVerComo"><option value="">Diretoria (você)</option>'+pessoas.map(m=>'<option value="'+esc(m.k)+'"'+(S.verComo&&S.verComo.k===m.k?" selected":"")+">"+esc(m.nome)+" · "+(m.papel==="gerente"?"Gerente":"Colaborador")+"</option>").join("")+'</select><span class="help">Mostra exatamente o que a pessoa vê nesta loja. Nada é salvo enquanto estiver visualizando.</span></div><button class="btn block" data-act="verComo">Visualizar</button>';
+    }
+    if(S.isDir)h+='<button class="btn block" data-act="lojas">Trocar de loja</button>';
     h+='<button class="btn danger block" data-act="sair">Sair</button>';
     openSheet("Sua conta",h);
   },
+  verComo(){
+    const k=($("#fVerComo")||{}).value||"";closeSheet();
+    if(!k){acts.sairPreview();return}
+    const m=S.loja.membros[k];if(!m)return;
+    if(!S.verComo)S.tabDir=S.tab;
+    S.verComo={k,papel:m.papel==="gerente"?"gerente":"colaborador"};
+    S.tab="hoje";S.filtro="minhas";S.pessoa="";S.ind=null;render();scrollTo(0,0);
+  },
+  sairPreview(){S.verComo=null;S.tab=S.tabDir||"hoje";S.filtro="todas";S.ind=null;render();maybeCreateToday();scrollTo(0,0)},
   lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
   abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
   sair(){closeSheet();signOut(FB.auth)},
@@ -1086,7 +1105,7 @@ function wrapDoc(path){
 const FB={};
 function fecharLoja(){
   ["loja","rotina","day"].forEach(k=>{if(unsub[k]){unsub[k]();unsub[k]=null}});
-  S.loja=null;S.lojaOk=false;S.rotina=null;S.rotinaOk=false;S.day=null;S.dayOk=false;S.dayExists=false;S.ind=null;S.creating={};
+  S.verComo=null;S.loja=null;S.lojaOk=false;S.rotina=null;S.rotinaOk=false;S.day=null;S.dayOk=false;S.dayExists=false;S.ind=null;S.creating={};
 }
 function abrirLoja(id){
   fecharLoja();S.lojaId=id;S.tab="hoje";S.dk=today();
