@@ -339,6 +339,9 @@ function nomeDe(k){
   const m=S.loja&&S.loja.membros&&S.loja.membros[k];
   return m?m.nome:"Sem responsável";
 }
+const gerentes=()=>membros().filter(m=>m.papel==="gerente");
+const gerenteLbl=()=>{const g=gerentes().map(m=>m.nome);return"Gerente"+(g.length?" ("+g.join(", ")+")":"")};
+const naoGerentes=()=>membros().filter(m=>m.papel!=="gerente");
 function cabeMim(it){
   if(S.verComo){const m=S.loja&&S.loja.membros&&S.loja.membros[it.r];return it.r==="gerente"||it.r==="todos"||!!(m&&m.papel==="gerente")}
   const k=meuKey(),p=papel();
@@ -482,7 +485,7 @@ function viewHoje(){
   const gestor=isGestor();
   let base=all;
   if(S.filtro==="minhas")base=all.filter(cabeMim);
-  else if(S.filtro==="pessoa"&&S.pessoa)base=all.filter(it=>it.r===S.pessoa);
+  else if(S.filtro==="pessoa"&&S.pessoa){const gk=new Set(["gerente"].concat(gerentes().map(m=>m.k)));base=all.filter(it=>S.pessoa==="gerente"?gk.has(it.r):it.r===S.pessoa)}
   S._all=all;S._base=base;
   const n=base.length,ok=base.filter(i=>i.st==="feito").length,nao=base.filter(i=>i.st==="nao").length;
   const late=base.filter(i=>statusOf(i)==="atrasada").length;
@@ -497,7 +500,7 @@ function viewHoje(){
     '<button class="chip" data-act="filtro" data-f="minhas" aria-pressed="'+(S.filtro==="minhas")+'">Minhas</button>'+
     '<button class="chip" data-act="filtro" data-f="todas" aria-pressed="'+(S.filtro==="todas")+'">Toda a loja</button>';
   if(gestor){
-    const opts=[["todos","Toda a equipe"],["gerente","Gerente"]].concat(membros().map(m=>[m.k,m.nome]));
+    const opts=[["todos","Toda a equipe"],["gerente",gerenteLbl()]].concat(naoGerentes().map(m=>[m.k,m.nome]));
     h+='<select class="chip" id="selPessoa" aria-label="Filtrar por pessoa" data-chg="pessoa"'+(S.filtro==="pessoa"?' style="background:var(--ink);color:var(--bg);font-weight:700"':"")+'><option value="">Por pessoa…</option>'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(S.filtro==="pessoa"&&S.pessoa===o[0]?" selected":"")+">"+esc(o[1])+"</option>").join("")+"</select>";
   }
   h+="</div>";
@@ -582,15 +585,18 @@ function viewEquipe(){
     const n=(d.itens||[]).length,o=(d.itens||[]).filter(i=>i.st==="feito").length,p=n?Math.round(o/n*100):null;
     return'<div class="col'+(d.dk===today()?" today":"")+'"><span class="pct">'+(p==null?"–":p+"%")+'</span><div class="track" style="height:100%"><i style="height:'+(p||0)+'%"></i></div><span class="lab">'+DIAS[parseDk(d.dk).getDay()]+"</span></div>"}).join("")+"</div></div></section>";
   // por pessoa
-  const keys=["gerente","todos"].concat(membros().map(m=>m.k));
-  const rows=keys.map(k=>{
-    const mine=allIt.filter(i=>i.r===k),mh=hoje.filter(i=>i.r===k);
-    const feitosPor=allIt.filter(i=>i.st==="feito"&&i.pm===k).length;
+  // O gerente da loja aparece numa linha só: tarefas para "Gerente" e para cada pessoa com papel de gerente.
+  const gKeys=new Set(["gerente"].concat(gerentes().map(m=>m.k)));
+  const grupos=[{k:"gerente",ks:gKeys},{k:"todos",ks:new Set(["todos"])}].concat(naoGerentes().map(m=>({k:m.k,ks:new Set([m.k])})));
+  const rows=grupos.map(({k,ks})=>{
+    const mine=allIt.filter(i=>ks.has(i.r)),mh=hoje.filter(i=>ks.has(i.r));
+    const feitosPor=allIt.filter(i=>i.st==="feito"&&ks.has(i.pm)).length;
     return{k,n:mine.length,ok:mine.filter(i=>i.st==="feito").length,nao:mine.filter(i=>i.st==="nao").length,hn:mh.length,hok:mh.filter(i=>i.st==="feito").length,feitosPor};
   }).filter(r=>r.n||r.feitosPor||(r.k!=="todos"&&r.k!=="gerente"));
   h+='<section class="sec"><h2>Por pessoa</h2><p class="hint">Atividades direcionadas a cada pessoa. “Marcou” conta tudo que a pessoa registrou, inclusive tarefas da equipe toda.</p><div class="card scroll-x"><table class="ptable"><thead><tr><th>Pessoa</th><th>Hoje</th><th>7 dias</th><th>Não real.</th><th>Marcou</th></tr></thead><tbody>'+
    rows.map(r=>{const p=r.n?Math.round(r.ok/r.n*100):0;const m=S.loja.membros&&S.loja.membros[r.k];
-    return"<tr><td>"+esc(nomeDe(r.k))+(m&&m.funcao?"<small>"+esc(m.funcao)+"</small>":"")+"</td><td>"+r.hok+"/"+r.hn+"</td><td>"+(r.n?p+'%<span class="minibar"><i style="width:'+p+'%"></i></span>':"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.feitosPor||"–")+"</td></tr>"}).join("")+"</tbody></table></div></section>";
+    const sub=r.k==="gerente"?gerentes().map(g=>g.nome).join(", "):(m&&m.funcao)||"";
+    return"<tr><td>"+esc(nomeDe(r.k))+(sub?"<small>"+esc(sub)+"</small>":"")+"</td><td>"+r.hok+"/"+r.hn+"</td><td>"+(r.n?p+'%<span class="minibar"><i style="width:'+p+'%"></i></span>':"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.feitosPor||"–")+"</td></tr>"}).join("")+"</tbody></table></div></section>";
   // não realizadas
   const naoList=[];days.forEach(d=>(d.itens||[]).forEach(i=>{if(i.st==="nao")naoList.push({dk:d.dk,i})}));
   h+='<section class="sec"><h2>Não realizadas</h2>'+(naoList.length?'<div class="list">'+naoList.reverse().map(x=>'<div class="li"><div class="grow"><div class="t">'+esc(x.i.t)+'</div><div class="s">'+esc(DIAS[parseDk(x.dk).getDay()]+" "+x.dk.slice(8)+"/"+x.dk.slice(5,7))+" · "+esc(nomeDe(x.i.r))+(x.i.motivo?" · Motivo: "+esc(x.i.motivo):"")+"</div></div></div>").join("")+"</div>":'<p class="hint">Nenhuma atividade marcada como não realizada nos últimos 7 dias.</p>')+
@@ -702,7 +708,8 @@ function closeSheet(){if(sheet.open)sheet.close();sheetCtx=null}
 sheet.addEventListener("click",e=>{if(e.target===sheet)closeSheet()});
 
 function respOptions(sel){
-  const o=[["todos","Toda a equipe"],["gerente","Gerente"]].concat(membros().map(m=>[m.k,m.nome+(m.funcao?" · "+m.funcao:"")]));
+  const o=[["todos","Toda a equipe"],["gerente",gerenteLbl()]].concat(naoGerentes().map(m=>[m.k,m.nome+(m.funcao?" · "+m.funcao:"")]));
+  if(sel&&!o.some(x=>x[0]===sel)&&S.loja.membros&&S.loja.membros[sel])o.push([sel,S.loja.membros[sel].nome]);
   return o.map(x=>'<option value="'+esc(x[0])+'"'+(x[0]===sel?" selected":"")+">"+esc(x[1])+"</option>").join("")+(isGestor()?'<option value="__nova">+ Cadastrar nova pessoa…</option>':"");
 }
 function campoNovaPessoa(){
