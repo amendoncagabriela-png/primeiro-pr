@@ -198,7 +198,7 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .field{display:grid;gap:6px}
 .field label,.field .lbl{font-weight:700;font-size:.9rem}
 .field .help{font-size:.8rem;color:var(--muted)}
-.field input[type=text],.field input[type=email],.field input[type=tel],.field input[type=time],.field input[type=date],.field select,.field textarea{width:100%;min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
+.field input[type=text],.field input[type=password],.field input[type=email],.field input[type=tel],.field input[type=time],.field input[type=date],.field select,.field textarea{width:100%;min-height:46px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg)}
 .field textarea{min-height:76px;resize:vertical}
 .daypick{display:flex;gap:6px;flex-wrap:wrap}
 .daypick label{flex:1 1 40px;min-width:40px}
@@ -230,6 +230,12 @@ dialog.sheet::backdrop{background:rgb(10 14 22 / .5)}
 .preview{background:var(--warn-soft);color:var(--ink);border-bottom:1px solid var(--warn)}
 .preview .wrap{display:flex;align-items:center;gap:10px;padding-block:8px;font-size:.85rem}
 .preview span{flex:1;min-width:0}
+.preview.equipe{background:var(--accent-soft);border-bottom-color:var(--accent)}
+.preview.equipe button{border-color:var(--accent);color:var(--accent)}
+.pessoas{display:grid;gap:6px}
+.pessoas button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-weight:700}
+.pessoas button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.pessoas small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
 .preview button{flex:none;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--warn);background:var(--surface);color:var(--warn);font-weight:700;font-size:.8rem}
 .hero{padding-block:28px 10px;display:grid;gap:12px}
 .hero h1{margin:0;font-family:var(--f-display);font-stretch:78%;font-weight:800;font-size:2.2rem;line-height:1;text-transform:uppercase;text-wrap:balance}
@@ -340,14 +346,17 @@ const S={db:null,auth:"loading",tel:"",isDir:false,acesso:null,lojaId:"",lojas:n
 const unsub={};
 
 const membros=()=>Object.values((S.loja&&S.loja.membros)||{}).filter(m=>m&&m.ativo!==false);
-const meuMembro=()=>S.verComo&&S.loja?(S.loja.membros||{})[S.verComo.k]||null:S.acesso?membros().find(m=>m.k===S.acesso.k)||null:null;
+const meuMembro=()=>S.equipe&&S.loja?(S.loja.membros||{})[S.equipe.k]||null:S.verComo&&S.loja?(S.loja.membros||{})[S.verComo.k]||null:S.acesso?membros().find(m=>m.k===S.acesso.k)||null:null;
+/* Modo equipe: o gerente deixa o próprio acesso aberto e cada colaborador marca as tarefas no próprio nome. */
+const papelReal=()=>S.isDir?"diretoria":(S.acesso&&S.acesso.ativo!==false?(S.acesso.papel||"colaborador"):null);
 function papel(){
+  if(S.equipe) return "colaborador";
   if(S.isDir&&S.verComo) return S.verComo.papel;
   if(S.isDir) return "diretoria";
   return S.acesso&&S.acesso.ativo!==false?(S.acesso.papel||"colaborador"):null;
 }
 const isGestor=()=>{const p=papel();return p==="diretoria"||p==="gerente"};
-const meuKey=()=>S.isDir?(S.verComo?S.verComo.k:"diretoria"):(S.acesso&&S.acesso.k)||"";
+const meuKey=()=>S.equipe?S.equipe.k:S.isDir?(S.verComo?S.verComo.k:"diretoria"):(S.acesso&&S.acesso.k)||"";
 function nomeDe(k){
   if(k==="todos")return"Toda a equipe";
   if(k==="gerente")return"Gerente";
@@ -480,7 +489,7 @@ function render0(){
   top.hidden=false;
   const roleLbl={diretoria:"Diretoria",gerente:"Gerente",colaborador:(meuMembro()||{}).nome||"Colaborador"}[p];
   const showDate=S.tab==="hoje";
-  top.innerHTML=(S.verComo?'<div class="preview"><div class="wrap"><span>Visualizando como <b>gerente</b> desta loja. Nada é salvo.</span><button data-act="sairPreview">Voltar à diretoria</button></div></div>':"")+'<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+(S.isDir&&!S.verComo&&S.pedidos&&S.pedidos.length?" · "+S.pedidos.length+" pedido"+(S.pedidos.length>1?"s":""):"")+" ▾</button></div>"+
+  top.innerHTML=(S.equipe?'<div class="preview equipe"><div class="wrap"><span>Marcando como <b>'+esc(nomeDe(S.equipe.k))+'</b>. As atividades ficam registradas no nome desta pessoa.</span><button data-act="menu">Trocar</button></div></div>':"")+(S.verComo?'<div class="preview"><div class="wrap"><span>Visualizando como <b>gerente</b> desta loja. Nada é salvo.</span><button data-act="sairPreview">Voltar à diretoria</button></div></div>':"")+'<div class="wrap"><div class="brand"><h1>'+esc(S.loja.nome||"Loja")+'</h1><button class="role" data-act="menu" style="border:0;cursor:pointer">'+esc(roleLbl)+(S.isDir&&!S.verComo&&S.pedidos&&S.pedidos.length?" · "+S.pedidos.length+" pedido"+(S.pedidos.length>1?"s":""):"")+" ▾</button></div>"+
    (showDate?'<div class="datebar"><button class="iconbtn" data-act="dia" data-n="-1" aria-label="Dia anterior">'+I.left+'</button><div class="d">'+esc(fmtDia(S.dk))+"<small>"+(S.dk===today()?"Hoje":S.dk>today()?"Planejamento":"Dia encerrado")+'</small></div><button class="iconbtn" data-act="dia" data-n="1" aria-label="Próximo dia">'+I.right+"</button>"+(S.dk!==today()?'<button class="todaybtn" data-act="hoje">Hoje</button>':"")+"</div>":"")+"</div>";
   if(isGestor()){
     tabs.hidden=false;
@@ -946,7 +955,20 @@ const acts={
   recusarPedido(){const id=sheetCtx.id;closeSheet();grava("pedidos",()=>deleteDoc(doc(FB.db,"pedidos/"+id))).then(ok=>ok&&toast("Pedido recusado."))},
   cancelarPedido(){grava("pedidos",()=>deleteDoc(doc(FB.db,"pedidos/"+S.tel)))},
   menu(){
+    if(S.equipe){
+      const ps=naoGerentes();
+      let h='<p style="margin:0;color:var(--muted)">Escolha quem vai marcar as atividades agora.</p><div class="pessoas">'+ps.map(m=>'<button data-act="usarComo" data-k="'+esc(m.k)+'" aria-pressed="'+(S.equipe.k===m.k)+'">'+esc(m.nome)+(m.funcao?"<small>"+esc(m.funcao)+"</small>":"")+"</button>").join("")+"</div>";
+      h+='<button class="btn block" data-act="voltarGerente">Voltar ao gerente</button>';
+      openSheet("Quem está usando?",h);return;
+    }
     let h='<p style="margin:0;color:var(--muted)">Conectado com <b style="color:var(--ink)">'+esc(fmtId(S.tel))+"</b></p>";
+    if(S.loja&&!S.verComo&&(papelReal()==="gerente"||papelReal()==="diretoria")){
+      const ps=naoGerentes();
+      h+='<div class="card" style="display:grid;gap:10px;background:var(--bg)"><b style="font-family:var(--f-display)">Modo equipe</b><p style="margin:0;font-size:.88rem;color:var(--muted)">Os colaboradores marcam as próprias atividades neste aparelho, sem novo login. Eles não veem indicadores, rotina nem equipe.</p>'+
+        (ps.length?'<div class="field"><label for="fEqPessoa">Começar com</label><select id="fEqPessoa">'+ps.map(m=>'<option value="'+esc(m.k)+'">'+esc(m.nome)+(m.funcao?" · "+esc(m.funcao):"")+"</option>").join("")+'</select></div>'+
+        '<div class="field"><label for="fEqPin">Senha para voltar ao gerente (opcional)</label><input type="password" id="fEqPin" inputmode="numeric" maxlength="6" placeholder="4 a 6 números" autocomplete="off"><span class="help">Sem senha, qualquer pessoa no aparelho consegue voltar ao gerente.</span></div>'+
+        '<button class="btn primary block" data-act="entrarEquipe">Entrar no modo equipe</button>':'<p class="hint" style="margin:0">Cadastre os colaboradores na aba Equipe para usar este modo.</p>')+"</div>";
+    }
     if(S.isDir&&S.loja)h+=S.verComo?'<button class="btn block" data-act="sairPreview">Voltar à visão da diretoria</button>':'<button class="btn block" data-act="verComo">Ver como gerente</button><p class="hint" style="margin:-6px 0 0;font-size:.8rem;color:var(--muted)">Mostra a tela que qualquer gerente desta loja vê. Nada é salvo enquanto estiver visualizando.</p>';
     if(S.isDir&&S.pedidos&&S.pedidos.length)h+='<button class="btn block" data-act="lojas" style="border-color:var(--warn);color:var(--warn)">Pedidos de acesso ('+S.pedidos.length+")</button>";
     if(S.isDir)h+='<button class="btn block" data-act="lojas">Trocar de loja</button>';
@@ -962,7 +984,27 @@ const acts={
   sairPreview(){closeSheet();S.verComo=null;S.tab=S.tabDir||"hoje";S.filtro="todas";S.ind=null;render();maybeCreateToday();scrollTo(0,0)},
   lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
   abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
-  sair(){closeSheet();signOut(FB.auth)},
+  sair(){closeSheet();salvarEquipe(null);signOut(FB.auth)},
+  entrarEquipe(){
+    const k=($("#fEqPessoa")||{}).value,pin=(($("#fEqPin")||{}).value||"").trim();
+    if(!k)return;
+    if(pin&&!/^\d{4,6}$/.test(pin)){toast("A senha precisa ter de 4 a 6 números.");return}
+    (pin?hashPin(pin):Promise.resolve("")).then(h=>{
+      closeSheet();S.verComo=null;S.equipe={k,pin:h};salvarEquipe(S.equipe);
+      S.tab="hoje";S.filtro="minhas";S.pessoa="";S.ind=null;render();scrollTo(0,0);
+      toast("Modo equipe ativo. Toque em “Trocar” para mudar de pessoa.");
+    });
+  },
+  usarComo(el){
+    const k=el.dataset.k;closeSheet();if(!S.equipe||!k)return;
+    S.equipe=Object.assign({},S.equipe,{k});salvarEquipe(S.equipe);S.filtro="minhas";render();scrollTo(0,0);
+    toast("Agora marcando como "+nomeDe(k)+".");
+  },
+  voltarGerente(){
+    if(!S.equipe)return;
+    if(!S.equipe.pin){sairEquipe();return}
+    openSheet("Voltar ao gerente",'<form data-form="pinGerente" style="display:grid;gap:12px"><div class="field"><label for="fPinVolta">Senha do gerente</label><input type="password" id="fPinVolta" name="pin" inputmode="numeric" maxlength="6" required autocomplete="off"></div><button class="btn primary block">Voltar ao gerente</button><p class="hint" style="margin:0;font-size:.8rem;color:var(--muted)">Esqueceu a senha? Toque em Sair e entre de novo com o e-mail do gerente.</p><button type="button" class="btn danger block" data-act="sair">Sair</button></form>');
+  },
   google(){
     S.login.busy=true;render();
     const prov=new GoogleAuthProvider();prov.setCustomParameters({prompt:"select_account"});
@@ -1072,6 +1114,10 @@ const forms={
     const email=normEmail(new FormData(f).get("email"));
     if(!email){toast("Digite um e-mail válido.");return}
     concluirLink(email);
+  },
+  pinGerente(f){
+    const pin=String(new FormData(f).get("pin")||"").trim();
+    hashPin(pin).then(h=>{if(S.equipe&&h===S.equipe.pin){closeSheet();sairEquipe()}else toast("Senha incorreta.")});
   },
   pedido(f){
     const fd=new FormData(f),nome=(fd.get("nome")||"").trim(),loja=(fd.get("loja")||"").trim();if(!nome||!loja)return;
@@ -1215,15 +1261,26 @@ function wrapDoc(path){
   };
 }
 const FB={};
+function hashPin(pin){
+  const d=new TextEncoder().encode("rotina-bin:"+pin);
+  if(!(window.crypto&&crypto.subtle)){let h=5381;for(const c of d)h=((h<<5)+h+c)>>>0;return Promise.resolve("s"+h.toString(16))}
+  return crypto.subtle.digest("SHA-256",d).then(b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""));
+}
+function salvarEquipe(eq){try{if(eq)localStorage.setItem("rotina-equipe",JSON.stringify(Object.assign({loja:S.lojaId,tel:S.tel},eq)));else localStorage.removeItem("rotina-equipe")}catch(e){}}
+function sairEquipe(){S.equipe=null;salvarEquipe(null);S.tab="hoje";S.filtro="todas";render();scrollTo(0,0);toast("De volta ao gerente.")}
 function fecharLoja(){
   ["loja","rotina","day"].forEach(k=>{if(unsub[k]){unsub[k]();unsub[k]=null}});
-  S.verComo=null;S.loja=null;S.lojaOk=false;S.rotina=null;S.rotinaOk=false;S.day=null;S.dayOk=false;S.dayExists=false;S.ind=null;S.creating={};
+  S.verComo=null;S.equipe=null;S.loja=null;S.lojaOk=false;S.rotina=null;S.rotinaOk=false;S.day=null;S.dayOk=false;S.dayExists=false;S.ind=null;S.creating={};
 }
 function abrirLoja(id){
   fecharLoja();S.lojaId=id;S.tab="hoje";S.dk=today();
+  try{const eq=JSON.parse(localStorage.getItem("rotina-equipe")||"null");
+    if(eq&&eq.loja===id&&eq.tel===S.tel&&eq.k&&(papelReal()==="gerente"||papelReal()==="diretoria")){S.equipe={k:eq.k,pin:eq.pin||""};S.filtro="minhas"}}catch(e){}
   if(S.isDir){try{localStorage.setItem("rotina-loja",id)}catch(e){}}
   unsub.loja=S.db.doc("config/loja").onSnapshot(s=>{S.lojaOk=true;S.loja=s.exists?s.data():null;
-    if(S.loja&&!isGestor()&&(S.filtro==="pessoa"||S.filtro==="colab"))S.filtro="minhas";render()},dbErr);
+    if(S.loja&&!isGestor()&&(S.filtro==="pessoa"||S.filtro==="colab"))S.filtro="minhas";
+    if(S.equipe&&S.loja&&!naoGerentes().some(m=>m.k===S.equipe.k)){const o=naoGerentes()[0];if(o){S.equipe.k=o.k;salvarEquipe(S.equipe)}else{S.equipe=null;salvarEquipe(null)}}
+    render()},dbErr);
   unsub.rotina=S.db.doc("config/rotina").onSnapshot(s=>{S.rotinaOk=true;S.rotina=s.exists?s.data():null;maybeCreateToday();render()},dbErr);
   setDay(S.dk);
 }
