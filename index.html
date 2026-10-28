@@ -100,6 +100,14 @@ ul.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .ev b{color:var(--ink);font-weight:700}
 .by{margin-top:5px;font-size:.8rem;color:var(--muted)}
 .motivo{margin-top:6px;font-size:.85rem;background:var(--bad-soft);color:var(--ink);border-radius:8px;padding:6px 8px}
+.task.st-parcial .check{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.task.st-parcial .check svg{opacity:1}
+.pend{margin-top:6px;font-size:.85rem;background:var(--warn-soft);color:var(--ink);border-radius:8px;padding:6px 8px}
+.task .side{display:flex;flex-direction:column;align-items:center;gap:2px}
+.task .det{width:34px;height:34px;border:0;border-radius:50%;background:var(--warn-soft);color:var(--warn);display:grid;place-items:center}
+.task .det svg{width:19px;height:19px}
+.detbox{white-space:pre-line;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.95rem;overflow-wrap:anywhere}
+.bar .b-warn{background:var(--warn)}
 .task .more{width:36px;height:40px;border:0;background:none;color:var(--muted);display:grid;place-items:center;border-radius:8px}
 .task .more svg{width:20px;height:20px}
 
@@ -305,6 +313,8 @@ const I={
  repeat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></svg>',
  store:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5L5.5 4h13L20 9.5M4 9.5h16M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0M5.5 12v8h13v-8M10 20v-4.5h4V20"/></svg>',
  chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+ meio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg>',
+ alerta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4L12 3.5z"/><path d="M12 10v4.2M12 17.2v.1"/></svg>',
  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
  book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5v-15zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>'
 };
@@ -348,7 +358,14 @@ function nomeDe(k){
 const gerentes=()=>membros().filter(m=>m.papel==="gerente");
 const gerenteLbl=()=>{const g=gerentes().map(m=>m.nome);return"Gerente"+(g.length?" ("+g.join(", ")+")":"")};
 const naoGerentes=()=>membros().filter(m=>m.papel!=="gerente");
+const respsDe=it=>[it.r,it.r2].filter(Boolean);
+const ehColab=k=>k==="todos"||!!(S.loja&&S.loja.membros&&S.loja.membros[k]&&S.loja.membros[k].papel!=="gerente");
+const nomesResp=it=>respsDe(it).map(nomeDe).join(" e ");
 function cabeMim(it){
+  if(it.r2&&cabeMim1(Object.assign({},it,{r:it.r2,r2:""})))return true;
+  return cabeMim1(it);
+}
+function cabeMim1(it){
   if(S.verComo){const m=S.loja&&S.loja.membros&&S.loja.membros[it.r];return it.r==="gerente"||it.r==="todos"||!!(m&&m.papel==="gerente")}
   const k=meuKey(),p=papel();
   return it.r===k||it.r==="todos"||(it.r==="gerente"&&(p==="gerente"||p==="diretoria"));
@@ -392,7 +409,7 @@ function genItens(dk){
   const its=(S.rotina&&S.rotina.itens)||{};
   for(const id in its){const r=its[id];
     if(!r||r.removido||!caiNoDia(r,dk))continue;
-    out["r_"+id]={t:r.t,m:r.m,r:r.r||"gerente",h:r.h||"",ev:r.ev||"",area:r.area||"",p:!!r.p,o:"rotina",st:"pendente",ord:r.ord||0,rc:r.criada||"",cp:r.cp||"",cv:!!r.cv};
+    out["r_"+id]={r2:r.r2||"",det:r.det||"",t:r.t,m:r.m,r:r.r||"gerente",h:r.h||"",ev:r.ev||"",area:r.area||"",p:!!r.p,o:"rotina",st:"pendente",ord:r.ord||0,rc:r.criada||"",cp:r.cp||"",cv:!!r.cv};
   }
   return out;
 }
@@ -476,6 +493,7 @@ function render0(){
 function statusOf(it){
   if(it.st==="feito")return"feito";
   if(it.st==="nao")return"nao";
+  if(it.st==="parcial")return"parcial";
   if(S.dk<today())return"semreg";
   if(S.dk===today()&&it.h&&it.h<nowHM())return"atrasada";
   return"pendente";
@@ -491,20 +509,22 @@ function viewHoje(){
   const gestor=isGestor();
   let base=all;
   if(S.filtro==="minhas")base=all.filter(cabeMim);
-  else if(S.filtro==="pessoa"&&S.pessoa){const gk=new Set(["gerente"].concat(gerentes().map(m=>m.k)));base=all.filter(it=>S.pessoa==="gerente"?gk.has(it.r):it.r===S.pessoa)}
+  else if(S.filtro==="colab")base=all.filter(it=>respsDe(it).some(ehColab));
+  else if(S.filtro==="pessoa"&&S.pessoa){const gk=new Set(["gerente"].concat(gerentes().map(m=>m.k)));base=all.filter(it=>respsDe(it).some(k=>S.pessoa==="gerente"?gk.has(k):k===S.pessoa))}
   S._all=all;S._base=base;
-  const n=base.length,ok=base.filter(i=>i.st==="feito").length,nao=base.filter(i=>i.st==="nao").length;
+  const n=base.length,ok=base.filter(i=>i.st==="feito").length,nao=base.filter(i=>i.st==="nao").length,par=base.filter(i=>i.st==="parcial").length;
   const late=base.filter(i=>statusOf(i)==="atrasada").length;
   const pct=n?Math.round(ok/n*100):0;
   let h='<div class="wrap">';
   h+='<div class="prog"><div class="big">'+pct+"%<span>realizado</span></div>"+
-    '<div class="bar" role="img" aria-label="'+ok+" de "+n+' realizadas"><i class="b-ok" style="width:'+(n?ok/n*100:0)+'%"></i><i class="b-bad" style="width:'+(n?nao/n*100:0)+'%"></i></div>'+
-    '<div class="nums"><span><b>'+ok+"</b> de "+n+" realizadas</span><span><b>"+nao+"</b> não realizadas</span>"+(late?'<span style="color:var(--warn)"><b style="color:var(--warn)">'+late+"</b> atrasadas</span>":"")+"</div></div>";
+    '<div class="bar" role="img" aria-label="'+ok+" de "+n+' realizadas"><i class="b-ok" style="width:'+(n?ok/n*100:0)+'%"></i><i class="b-warn" style="width:'+(n?par/n*100:0)+'%"></i><i class="b-bad" style="width:'+(n?nao/n*100:0)+'%"></i></div>'+
+    '<div class="nums"><span><b>'+ok+"</b> de "+n+" realizadas</span><span><b>"+nao+"</b> não realizadas</span>"+(par?"<span><b>"+par+"</b> parciais</span>":"")+(late?'<span style="color:var(--warn)"><b style="color:var(--warn)">'+late+"</b> atrasadas</span>":"")+"</div></div>";
   h+=buscaHtml();
   // filtros
   h+='<div class="chips" role="group" aria-label="Filtro">'+
     '<button class="chip" data-act="filtro" data-f="minhas" aria-pressed="'+(S.filtro==="minhas")+'">Minhas</button>'+
-    '<button class="chip" data-act="filtro" data-f="todas" aria-pressed="'+(S.filtro==="todas")+'">Toda a loja</button>';
+    '<button class="chip" data-act="filtro" data-f="todas" aria-pressed="'+(S.filtro==="todas")+'">Toda a loja</button>'+
+    (gestor?'<button class="chip" data-act="filtro" data-f="colab" aria-pressed="'+(S.filtro==="colab")+'">Colaboradores</button>':"");
   if(gestor){
     const opts=[["todos","Toda a equipe"],["gerente",gerenteLbl()]].concat(naoGerentes().map(m=>[m.k,m.nome]));
     h+='<select class="chip" id="selPessoa" aria-label="Filtrar por pessoa" data-chg="pessoa"'+(S.filtro==="pessoa"?' style="background:var(--ink);color:var(--bg);font-weight:700"':"")+'><option value="">Por pessoa…</option>'+opts.map(o=>'<option value="'+esc(o[0])+'"'+(S.filtro==="pessoa"&&S.pessoa===o[0]?" selected":"")+">"+esc(o[1])+"</option>").join("")+"</select>";
@@ -529,7 +549,7 @@ function listaHtml(all,base){
   if(!all.length){
     h+='<div class="empty"><b>Checklist vazio</b>'+(gestor?"Monte a rotina da loja na aba Rotina ou acrescente uma tarefa só para este dia.":"O gerente ainda não direcionou atividades para este dia.")+"</div>";
   } else if(!base.length){
-    h+='<div class="empty"><b>Nada por aqui</b>'+(S.filtro==="minhas"?"Nenhuma atividade direcionada a você neste dia. Veja “Toda a loja”.":"Nenhuma atividade para esta pessoa.")+"</div>";
+    h+='<div class="empty"><b>Nada por aqui</b>'+(S.filtro==="minhas"?"Nenhuma atividade direcionada a você neste dia. Veja “Toda a loja”.":S.filtro==="colab"?"Nenhuma atividade direcionada aos colaboradores neste dia.":"Nenhuma atividade para esta pessoa.")+"</div>";
   } else if(!vis.length){
     h+='<div class="empty"><b>Nenhuma tarefa encontrada</b>Nada com “'+esc(S.busca.trim())+"”"+(S.filtro!=="todas"?". Tente buscar em “Toda a loja”.":".")+"</div>";
   }
@@ -546,7 +566,8 @@ function listaHtml(all,base){
 function taskHtml(it){
   const st=statusOf(it);
   const pills=[];
-  pills.push('<span class="pill who">'+esc(nomeDe(it.r))+"</span>");
+  respsDe(it).forEach(k=>pills.push('<span class="pill who">'+esc(nomeDe(k))+"</span>"));
+  if(it.orig)pills.push('<span class="pill late">Continuação de '+esc(dm(it.orig))+"</span>");
   if(it.h)pills.push('<span class="pill">'+esc(it.h)+"</span>");
   if(it.p)pills.push('<span class="pill hi">Prioridade alta</span>');
   if(isCriada(it))pills.push('<span class="pill nova">'+(isNova(it)?"Rotina nova":"Rotina criada")+"</span>");
@@ -554,16 +575,19 @@ function taskHtml(it){
   if(st==="atrasada")pills.push('<span class="pill late">Atrasada</span>');
   if(st==="semreg")pills.push('<span class="pill late">Sem registro</span>');
   if(st==="nao")pills.push('<span class="pill bad">Não realizada</span>');
+  if(st==="parcial")pills.push('<span class="pill late">Parcialmente realizada</span>');
   const au=autorTxt(it);
   let by=au?'<div class="autor">'+esc(au)+"</div>":"";
-  if((it.st==="feito"||it.st==="nao")&&it.em)by+='<div class="by">'+(it.st==="feito"?"Realizada":"Marcada")+" por "+esc(nomeDe(it.pm))+" às "+esc(fmtHora(it.em))+"</div>";
+  if((it.st==="feito"||it.st==="nao"||it.st==="parcial")&&it.em)by+='<div class="by">'+(it.st==="feito"?"Realizada":"Marcada")+" por "+esc(nomeDe(it.pm))+" às "+esc(fmtHora(it.em))+"</div>";
   const canMark=S.dk<=today();
   return'<li class="task st-'+esc(it.st||"pendente")+(isCriada(it)?" t-nova":it.o==="dia"?" t-dia":"")+'">'+
-   '<button class="check" data-act="toggle" data-id="'+esc(it.id)+'" aria-label="'+(it.st==="feito"?"Desmarcar":"Marcar como realizada")+'"'+(canMark?"":" disabled")+">"+(it.st==="nao"?I.x:I.check)+"</button>"+
+   '<button class="check" data-act="toggle" data-id="'+esc(it.id)+'" aria-label="'+(it.st==="feito"?"Desmarcar":"Marcar como realizada")+'"'+(canMark?"":" disabled")+">"+(it.st==="nao"?I.x:it.st==="parcial"?I.meio:I.check)+"</button>"+
    '<button class="tb" data-act="item" data-id="'+esc(it.id)+'"><div class="ttl">'+esc(it.t)+'</div><div class="meta">'+pills.join("")+"</div>"+
    (it.ev?'<div class="ev"><b>Concluída quando:</b> '+esc(it.ev)+"</div>":"")+
-   (it.st==="nao"&&it.motivo?'<div class="motivo"><b>Motivo:</b> '+esc(it.motivo)+"</div>":"")+by+"</button>"+
-   '<button class="more" data-act="item" data-id="'+esc(it.id)+'" aria-label="Mais opções">'+I.dots+"</button></li>";
+   (it.st==="nao"&&it.motivo?'<div class="motivo"><b>Motivo:</b> '+esc(it.motivo)+"</div>":"")+
+   (it.st==="parcial"&&it.pend?'<div class="pend"><b>Ficou pendente:</b> '+esc(it.pend)+(it.cont?" · <b>Continua em "+esc(dm(it.cont))+"</b>":"")+"</div>":"")+by+"</button>"+
+   '<div class="side"><button class="more" data-act="item" data-id="'+esc(it.id)+'" aria-label="Mais opções">'+I.dots+"</button>"+
+   (it.det?'<button class="det" data-act="det" data-id="'+esc(it.id)+'" aria-label="Ver detalhamento da tarefa" title="Esta tarefa tem detalhamento">'+I.alerta+"</button>":"")+"</div></li>";
 }
 
 /* ---------- indicadores ---------- */
@@ -595,7 +619,8 @@ function viewEquipe(){
   const gKeys=new Set(["gerente"].concat(gerentes().map(m=>m.k)));
   const grupos=[{k:"gerente",ks:gKeys},{k:"todos",ks:new Set(["todos"])}].concat(naoGerentes().map(m=>({k:m.k,ks:new Set([m.k])})));
   const rows=grupos.map(({k,ks})=>{
-    const mine=allIt.filter(i=>ks.has(i.r)),mh=hoje.filter(i=>ks.has(i.r));
+    const tem=i=>respsDe(i).some(x=>ks.has(x));
+    const mine=allIt.filter(tem),mh=hoje.filter(tem);
     const feitosPor=allIt.filter(i=>i.st==="feito"&&ks.has(i.pm)).length;
     return{k,n:mine.length,ok:mine.filter(i=>i.st==="feito").length,nao:mine.filter(i=>i.st==="nao").length,hn:mh.length,hok:mh.filter(i=>i.st==="feito").length,feitosPor};
   }).filter(r=>r.n||r.feitosPor||(r.k!=="todos"&&r.k!=="gerente"));
@@ -604,8 +629,8 @@ function viewEquipe(){
     const sub=r.k==="gerente"?gerentes().map(g=>g.nome).join(", "):(m&&m.funcao)||"";
     return"<tr><td>"+esc(nomeDe(r.k))+(sub?"<small>"+esc(sub)+"</small>":"")+"</td><td>"+r.hok+"/"+r.hn+"</td><td>"+(r.n?p+'%<span class="minibar"><i style="width:'+p+'%"></i></span>':"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.feitosPor||"–")+"</td></tr>"}).join("")+"</tbody></table></div></section>";
   // não realizadas
-  const naoList=[];days.forEach(d=>(d.itens||[]).forEach(i=>{if(i.st==="nao")naoList.push({dk:d.dk,i})}));
-  h+='<section class="sec"><h2>Não realizadas</h2>'+(naoList.length?'<div class="list">'+naoList.reverse().map(x=>'<div class="li"><div class="grow"><div class="t">'+esc(x.i.t)+'</div><div class="s">'+esc(DIAS[parseDk(x.dk).getDay()]+" "+x.dk.slice(8)+"/"+x.dk.slice(5,7))+" · "+esc(nomeDe(x.i.r))+(x.i.motivo?" · Motivo: "+esc(x.i.motivo):"")+"</div></div></div>").join("")+"</div>":'<p class="hint">Nenhuma atividade marcada como não realizada nos últimos 7 dias.</p>')+
+  const naoList=[];days.forEach(d=>(d.itens||[]).forEach(i=>{if(i.st==="nao"||i.st==="parcial")naoList.push({dk:d.dk,i})}));
+  h+='<section class="sec"><h2>Não realizadas e parciais</h2>'+(naoList.length?'<div class="list">'+naoList.reverse().map(x=>'<div class="li"><div class="grow"><div class="t">'+esc(x.i.t)+'</div><div class="s">'+esc(DIAS[parseDk(x.dk).getDay()]+" "+x.dk.slice(8)+"/"+x.dk.slice(5,7))+" · "+esc(nomesResp(x.i))+(x.i.st==="parcial"?" · Parcial"+(x.i.pend?": falta "+esc(x.i.pend):"")+(x.i.cont?" · continua em "+esc(dm(x.i.cont)):""):(x.i.motivo?" · Motivo: "+esc(x.i.motivo):""))+"</div></div></div>").join("")+"</div>":'<p class="hint">Nenhuma atividade marcada como não realizada ou parcial nos últimos 7 dias.</p>')+
    '<p class="hint">Problemas que se repetem pedem um plano de ação: diagnóstico, responsáveis, prazos e etapas.</p></section>';
   h+='<div class="sec"><button class="btn block" data-act="recarregarInd">Atualizar indicadores</button></div></div>';
   return h;
@@ -718,6 +743,11 @@ function respOptions(sel){
   if(sel&&!o.some(x=>x[0]===sel)&&S.loja.membros&&S.loja.membros[sel])o.push([sel,S.loja.membros[sel].nome]);
   return o.map(x=>'<option value="'+esc(x[0])+'"'+(x[0]===sel?" selected":"")+">"+esc(x[1])+"</option>").join("")+(isGestor()?'<option value="__nova">+ Cadastrar nova pessoa…</option>':"");
 }
+function respOptions2(sel,excluir){
+  const o=[["","Ninguém"],["todos","Toda a equipe"],["gerente",gerenteLbl()]].concat(naoGerentes().map(m=>[m.k,m.nome+(m.funcao?" · "+m.funcao:"")]));
+  if(sel&&!o.some(x=>x[0]===sel)&&S.loja.membros&&S.loja.membros[sel])o.push([sel,S.loja.membros[sel].nome]);
+  return o.map(x=>'<option value="'+esc(x[0])+'"'+(x[0]===(sel||"")?" selected":"")+">"+esc(x[1])+"</option>").join("");
+}
 function campoNovaPessoa(){
   return'<div class="card" id="novaPessoa" hidden style="display:grid;gap:10px;background:var(--bg)"><div class="field"><label for="fNN">Nome do colaborador</label><input type="text" id="fNN" name="nn" maxlength="50" placeholder="Ex.: João"></div><div class="field"><label for="fNF">Função (opcional)</label><input type="text" id="fNF" name="nf" maxlength="40" placeholder="Ex.: Estoquista"></div><span class="help" style="font-size:.8rem;color:var(--muted)">A pessoa entra na equipe da loja e já recebe esta tarefa. Não precisa ter conta para ser responsável.</span></div>';
 }
@@ -743,11 +773,13 @@ function formTarefa(it,{rotina,converter}){
   let h='<form data-form="'+(rotina?"rotina":"tarefa")+'" style="display:grid;gap:14px">'+
    '<div class="field"><label for="fT">O que será feito</label><textarea id="fT" name="t" maxlength="200" required placeholder="Ex.: Concluir a reposição do setor de descartáveis">'+esc(it.t||"")+'</textarea>'+(rotina||it.id?"":'<button type="button" class="btn" data-act="banco" data-alvo="tarefa" style="justify-self:start;min-height:38px">'+I.book+"Escolher do banco de tarefas</button>")+"</div>"+
    '<div class="field"><label for="fR">Quem fará</label><select id="fR" name="r">'+respOptions(it.r||(rotina?"gerente":"todos"))+"</select></div>"+campoNovaPessoa()+
+   '<div class="field"><label for="fR2">Mais um responsável (opcional)</label><select id="fR2" name="r2">'+respOptions2(it.r2||"")+"</select></div>"+
    '<div class="field"><span class="lbl">Quando</span><div class="seg">'+MOMENTOS.map(x=>'<label><input type="radio" name="m" value="'+x[0]+'"'+(x[0]===m?" checked":"")+"><span>"+esc(MOM_CURTO[x[0]])+"</span></label>").join("")+"</div></div>"+
    '<div class="field"><label for="fH">Até que horas (opcional)</label><input type="time" id="fH" name="h" value="'+esc(it.h||"")+'"><span class="help">Depois deste horário a tarefa aparece como atrasada.</span></div>';
   if(rotina)h+=campoRepeticao(it,true);
   else if(!it.id)h+='<label class="toggle"><input type="checkbox" id="fVira" name="vira"> Repetir esta tarefa (virar rotina)</label>'+campoRepeticao(it,false);
-  h+='<div class="field"><label for="fEv">Como saber que foi concluída (opcional)</label><input type="text" id="fEv" name="ev" maxlength="160" value="'+esc(it.ev||"")+'" placeholder="Ex.: setores conferidos pelo gerente"></div>'+
+  h+='<div class="field"><label for="fDet">Detalhamento (opcional)</label><textarea id="fDet" name="det" maxlength="1500" rows="3" placeholder="Ex.: quais produtos, onde ficam, cuidados, quem procurar em caso de dúvida">'+esc(it.det||"")+'</textarea><span class="help">No checklist fica escondido. Aparece um ícone de atenção; ao tocar, abre o detalhamento.</span></div>'+
+   '<div class="field"><label for="fEv">Como saber que foi concluída (opcional)</label><input type="text" id="fEv" name="ev" maxlength="160" value="'+esc(it.ev||"")+'" placeholder="Ex.: setores conferidos pelo gerente"></div>'+
    '<label class="toggle"><input type="checkbox" id="fP" name="p"'+(it.p?" checked":"")+"> Prioridade alta</label>"+
    '<button class="btn primary block">'+(converter?"Transformar em rotina":it.id?"Salvar":rotina?"Adicionar à rotina":"Adicionar ao dia")+"</button>";
   if(it.id&&rotina&&!converter)h+='<button type="button" class="btn danger block" data-act="excluirRotina">Excluir da rotina</button>';
@@ -756,21 +788,24 @@ function formTarefa(it,{rotina,converter}){
 function readForm(f){
   const fd=new FormData(f);
   return{t:(fd.get("t")||"").trim(),r:fd.get("r")||"todos",m:fd.get("m")||"dia",h:fd.get("h")||"",ev:(fd.get("ev")||"").trim(),p:!!fd.get("p"),dias:fd.getAll("dias").map(Number),nn:(fd.get("nn")||"").trim(),nf:(fd.get("nf")||"").trim(),
-    freq:fd.get("freq")||"dias",ini:fd.get("ini")||"",fim:fd.get("fim")||"",vira:!!fd.get("vira")};
+    freq:fd.get("freq")||"dias",ini:fd.get("ini")||"",fim:fd.get("fim")||"",vira:!!fd.get("vira"),
+    r2:fd.get("r2")||"",det:(fd.get("det")||"").trim()};
 }
 function montarRotina(v){
   if(v.freq==="dias"&&!v.dias.length){toast("Escolha pelo menos um dia da semana.");return null}
   let ini=v.ini;if(!ini&&v.freq!=="dias"&&v.freq!=="diario")ini=today();
   if(v.fim&&ini&&v.fim<ini){toast("A data de fim precisa ser depois do início.");return null}
-  return{t:v.t,r:v.r,m:v.m,h:v.h,ev:v.ev,p:v.p,freq:v.freq,dias:v.freq==="dias"?v.dias:[],ini,fim:v.fim};
+  return{t:v.t,r:v.r,r2:v.r2&&v.r2!==v.r?v.r2:"",det:v.det,m:v.m,h:v.h,ev:v.ev,p:v.p,freq:v.freq,dias:v.freq==="dias"?v.dias:[],ini,fim:v.fim};
 }
 
 function sheetItem(id){
   const its=itensDoDia()||{};const it=its[id];if(!it)return;
   const gestor=isGestor(),past=S.dk>today();
-  let h='<div style="display:grid;gap:6px"><div class="ttl" style="font-weight:700;font-size:1.05rem">'+esc(it.t)+'</div><div class="meta"><span class="pill who">'+esc(nomeDe(it.r))+'</span><span class="pill">'+esc(MOM_CURTO[it.m||"dia"])+"</span>"+(it.h?'<span class="pill">até '+esc(it.h)+"</span>":"")+(it.o==="rotina"?'<span class="pill kraft">Rotina</span>':"")+"</div>"+(autorTxt(it)?'<div class="autor">'+esc(autorTxt(it))+"</div>":"")+(it.ev?'<div class="ev"><b>Concluída quando:</b> '+esc(it.ev)+"</div>":"")+"</div>";
+  let h='<div style="display:grid;gap:6px"><div class="ttl" style="font-weight:700;font-size:1.05rem">'+esc(it.t)+'</div><div class="meta">'+respsDe(it).map(k=>'<span class="pill who">'+esc(nomeDe(k))+"</span>").join("")+'<span class="pill">'+esc(MOM_CURTO[it.m||"dia"])+"</span>"+(it.h?'<span class="pill">até '+esc(it.h)+"</span>":"")+(it.o==="rotina"?'<span class="pill kraft">Rotina</span>':"")+"</div>"+(autorTxt(it)?'<div class="autor">'+esc(autorTxt(it))+"</div>":"")+(it.ev?'<div class="ev"><b>Concluída quando:</b> '+esc(it.ev)+"</div>":"")+(it.det?'<div class="detbox">'+esc(it.det)+"</div>":"")+
+   (it.st==="parcial"&&it.pend?'<div class="pend"><b>Ficou pendente:</b> '+esc(it.pend)+(it.cont?" · continua em "+esc(dm(it.cont)):"")+"</div>":"")+"</div>";
   if(!past){
     h+='<div class="row">'+(it.st!=="feito"?'<button class="btn ok" data-act="marcar" data-st="feito">'+I.check+"Realizada</button>":"")+(it.st!=="pendente"&&it.st?'<button class="btn" data-act="marcar" data-st="pendente">Reabrir</button>':"")+"</div>";
+    if(it.st!=="parcial")h+='<form data-form="parcial" style="display:grid;gap:8px"><div class="field"><label for="fPend">Parcialmente realizada? Diga o que ficou pendente</label><textarea id="fPend" name="pend" maxlength="300" rows="2" required placeholder="Ex.: faltou repor o corredor 3"></textarea></div><label class="toggle"><input type="checkbox" id="fCont" name="cont"> Continuar a atividade em outra data</label><div class="field" id="contBox" hidden><label for="fContData">Continuar em</label><input type="date" id="fContData" name="contData" min="'+esc(addDays(S.dk,1))+'" value="'+esc(addDays(S.dk,1))+'"><span class="help">A parte pendente vira uma tarefa nesse dia, com os mesmos responsáveis.</span></div><button class="btn block" style="border-color:var(--warn);color:var(--warn)">Marcar como parcialmente realizada</button></form>';
     if(it.st!=="nao")h+='<form data-form="nao" style="display:grid;gap:8px"><div class="field"><label for="fMot">Não foi realizada? Diga o motivo</label><input type="text" id="fMot" name="motivo" maxlength="160" required placeholder="Ex.: falta de funcionário, sistema fora do ar"></div><button class="btn danger">Marcar como não realizada</button></form>';
   }
   if(gestor&&S.dk>=today()){
@@ -829,13 +864,17 @@ const acts={
     const id=el.dataset.id,it=(itensDoDia()||{})[id];if(!it)return;
     if(S.dk>today())return;
     const novo=it.st==="feito"?"pendente":"feito";
-    if(it.st==="nao"){sheetItem(id);return}
-    patchItem(id,{st:novo,pm:novo==="feito"?meuKey():null,em:novo==="feito"?new Date().toISOString():null,motivo:null});
+    if(it.st==="nao"||it.st==="parcial"){sheetItem(id);return}
+    patchItem(id,{st:novo,pm:novo==="feito"?meuKey():null,em:novo==="feito"?new Date().toISOString():null,motivo:null,pend:null,cont:null});
   },
   item(el){sheetItem(el.dataset.id)},
+  det(el){
+    const id=el.dataset.id,it=(itensDoDia()||{})[id];if(!it)return;
+    openSheet("Detalhamento",'<div style="font-weight:700;font-size:1.05rem">'+esc(it.t)+'</div><div class="meta">'+respsDe(it).map(k=>'<span class="pill who">'+esc(nomeDe(k))+"</span>").join("")+'</div><div class="detbox">'+esc(it.det||"")+'</div><button class="btn block" data-act="item" data-id="'+esc(id)+'">Abrir a atividade</button>');
+  },
   marcar(el){
     const id=sheetCtx.id,st=el.dataset.st;
-    patchItem(id,{st,pm:st==="pendente"?null:meuKey(),em:st==="pendente"?null:new Date().toISOString(),motivo:null});closeSheet();
+    patchItem(id,{st,pm:st==="pendente"?null:meuKey(),em:st==="pendente"?null:new Date().toISOString(),motivo:null,pend:null,cont:null});closeSheet();
   },
   removerItem(){
     const id=sheetCtx.id;closeSheet();
@@ -950,11 +989,11 @@ const forms={
     let rot=null;
     if(v.vira&&!editando){rot=montarRotina(v);if(!rot)return}
     const r=resolverResp(v);if(!r)return;v.r=r;
-    const it={t:v.t,r:v.r,m:v.m,h:v.h,ev:v.ev,p:v.p};
+    const it={t:v.t,r:v.r,r2:v.r2&&v.r2!==v.r?v.r2:"",det:v.det,m:v.m,h:v.h,ev:v.ev,p:v.p};
     if(editando){patchItem(sheetCtx.id,it);closeSheet();toast("Atividade atualizada.");return}
     if(rot){
       const rid=gid("u_"),criada=today(),area=(sheetCtx&&sheetCtx.area)||"";
-      rot.r=r;
+      rot.r=r;if(rot.r2===r)rot.r2="";
       const cp=meuKey();
       rotinaWrite({[rid]:Object.assign(rot,{area,ord:Date.now(),criada,cp})});
       patchItem("r_"+rid,Object.assign(it,{area,o:"rotina",rid,rc:criada,cp,st:"pendente",ord:Date.now()}));
@@ -967,7 +1006,7 @@ const forms={
   rotina(f){
     const v=readForm(f);if(!v.t)return;
     const rot=montarRotina(v);if(!rot)return;
-    const r=resolverResp(v);if(!r)return;rot.r=r;
+    const r=resolverResp(v);if(!r)return;rot.r=r;if(rot.r2===r)rot.r2="";
     if(sheetCtx&&sheetCtx.tipo==="editRotina"){rotinaWrite({[sheetCtx.id]:rot});closeSheet();toast("Rotina atualizada.");return}
     const rid=gid("u_"),criada=today(),area=(sheetCtx&&sheetCtx.area)||"",cp=meuKey(),cv=!!(sheetCtx&&sheetCtx.tipo==="converter");
     rotinaWrite({[rid]:Object.assign(rot,{area,ord:Date.now(),criada,cp,cv})});
@@ -976,7 +1015,21 @@ const forms={
   },
   nao(f){
     const motivo=(new FormData(f).get("motivo")||"").trim();if(!motivo)return;
-    patchItem(sheetCtx.id,{st:"nao",motivo,pm:meuKey(),em:new Date().toISOString()});closeSheet();
+    patchItem(sheetCtx.id,{st:"nao",motivo,pm:meuKey(),em:new Date().toISOString(),pend:null,cont:null});closeSheet();
+  },
+  parcial(f){
+    const fd=new FormData(f),pend=(fd.get("pend")||"").trim();if(!pend)return;
+    const id=sheetCtx.id,it=(itensDoDia()||{})[id];if(!it)return;
+    const dest=fd.get("cont")?(fd.get("contData")||""):"";
+    if(fd.get("cont")&&(!dest||dest<=S.dk)){toast("Escolha uma data depois de "+dm(S.dk)+".");return}
+    const origem=S.dk;closeSheet();
+    patchItem(id,{st:"parcial",pend,cont:dest||null,pm:meuKey(),em:new Date().toISOString(),motivo:null});
+    if(!dest)return;
+    const nid=gid("c_");
+    const nova={t:it.t,m:it.m||"dia",r:it.r,r2:it.r2||"",h:it.h||"",ev:it.ev||"",p:!!it.p,area:it.area||"",
+      det:"Pendente de "+dm(origem)+": "+pend+(it.det?"\n\n"+it.det:""),o:"dia",st:"pendente",ord:Date.now(),cp:meuKey(),cd:today(),orig:origem,origId:id};
+    grava("dias/"+dest,async()=>{await ensureDay(dest);await dayRef(dest).update({itens:{[nid]:nova}})})
+      .then(ok=>ok&&toast("Parte pendente agendada para "+fmtDia(dest)+"."));
   },
   transferir(f){
     const k=sheetCtx.k,m=S.loja.membros[k],dest=new FormData(f).get("dest");if(!dest||!m)return;
@@ -1101,6 +1154,7 @@ document.addEventListener("input",e=>{
   const c=document.querySelector('[data-act="limparBusca"]');if(c)c.hidden=!S.busca;
 });
 document.addEventListener("change",e=>{
+  if(e.target.id==="fCont"){const b=$("#contBox");if(b)b.hidden=!e.target.checked}
   if(e.target.id==="fVira"){const b=$("#repBox");if(b)b.hidden=!e.target.checked}
   if(e.target.id==="fFreq"){const b=$("#dayBox");if(b)b.hidden=e.target.value!=="dias"}
   if(e.target.id==="fR"){const box=$("#novaPessoa"),nova=e.target.value==="__nova";if(box){box.hidden=!nova;$("#fNN").required=nova;if(nova)$("#fNN").focus()}}
@@ -1169,7 +1223,7 @@ function abrirLoja(id){
   fecharLoja();S.lojaId=id;S.tab="hoje";S.dk=today();
   if(S.isDir){try{localStorage.setItem("rotina-loja",id)}catch(e){}}
   unsub.loja=S.db.doc("config/loja").onSnapshot(s=>{S.lojaOk=true;S.loja=s.exists?s.data():null;
-    if(S.loja&&!isGestor()&&S.filtro==="pessoa")S.filtro="minhas";render()},dbErr);
+    if(S.loja&&!isGestor()&&(S.filtro==="pessoa"||S.filtro==="colab"))S.filtro="minhas";render()},dbErr);
   unsub.rotina=S.db.doc("config/rotina").onSnapshot(s=>{S.rotinaOk=true;S.rotina=s.exists?s.data():null;maybeCreateToday();render()},dbErr);
   setDay(S.dk);
 }
