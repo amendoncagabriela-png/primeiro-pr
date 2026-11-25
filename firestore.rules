@@ -64,6 +64,12 @@ service cloud.firestore {
       }
       // Trava do dia: gerente e colaborador só alteram o dia de hoje ou dias futuros
       // (planejamento). Dias anteriores ficam fechados; só a diretoria corrige.
+      // Reportes: só o gerente da loja e a diretoria leem e escrevem.
+      // sem-AAAA-MM-DD = reporte semanal; dia-AAAA-MM-DD = registro do dia (fecha junto com o dia).
+      match /reportes/{r} {
+        allow read: if gerenteDe(l);
+        allow write: if gerenteDe(l) && (isDir() || !r.matches('dia-.*') || r >= 'dia-' + hojeBR());
+      }
       match /dias/{dia} {
         allow read: if daLoja(l);
         allow write: if isDir() || (daLoja(l) && dia >= hojeBR());

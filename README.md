@@ -42,6 +42,12 @@ O login é por e-mail (link de acesso, sem senha, qualquer provedor) ou pela con
 - **Trava do dia:** gerentes e colaboradores só marcam atividades do dia de hoje. Dias anteriores ficam fechados (na tela e nas regras do banco); só a diretoria corrige. Dias futuros continuam abertos para planejamento.
 - **Avisos de marcação apressada:** o app pede confirmação quando uma tarefa é marcada como realizada até 5 minutos depois de criada, ou quando a mesma pessoa marca 4 ou mais atividades em 3 minutos. Se confirmada, a marcação fica sinalizada (campo `al`) e aparece para o gerente e na coluna “Com aviso” do painel da diretoria.
 
+## Registro do dia e reporte semanal (gerente)
+
+- **Registro do dia:** no fim do checklist, o gerente marca o clima da equipe, faltas/atestados, diferença de caixa e se conferiu o ritmo de vendas no FUTURA (sem valores). Fecha junto com o dia.
+- **Aba Reporte:** reporte semanal (sexta/sábado) com resumo automático da semana, a partir do checklist e dos registros do dia, mais os campos de vendas, equipe, loja, estoque e urgências. Substitui o resuminho do WhatsApp.
+- Só o gerente da loja e a diretoria leem e escrevem os reportes; colaboradores não têm acesso. A diretoria vê tudo na seção **Reportes semanais** do painel.
+
 ## Estrutura dos dados
 
 - `admins/{celular ou e-mail}`: diretoria (cadastrada só pelo console).
@@ -50,3 +56,5 @@ O login é por e-mail (link de acesso, sem senha, qualquer provedor) ou pela con
 - `lojas/{loja}`: nome e equipe da loja.
 - `lojas/{loja}/config/rotina`: rotinas que se repetem.
 - `lojas/{loja}/dias/{AAAA-MM-DD}`: checklist de cada dia.
+- `lojas/{loja}/reportes/dia-{AAAA-MM-DD}`: registro do dia do gerente.
+- `lojas/{loja}/reportes/sem-{AAAA-MM-DD}`: reporte semanal (a data é a segunda-feira da semana).

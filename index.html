@@ -108,6 +108,27 @@ ul.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .task .det svg{width:19px;height:19px}
 .detbox{white-space:pre-line;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.95rem;overflow-wrap:anywhere}
 .bar .b-warn{background:var(--warn)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--bad);vertical-align:2px}
+.regdia{margin-top:18px;margin-bottom:72px;border:1.5px solid var(--accent);border-radius:var(--r);background:var(--surface);padding:14px;display:grid;gap:12px}
+.regdia h3{margin:0;font-family:var(--f-display);font-size:1rem;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.regdia h3 svg{width:20px;height:20px;color:var(--accent)}
+.opts{display:flex;gap:6px;flex-wrap:wrap}
+.opts label{flex:1 1 auto;position:relative}
+.opts input{position:absolute;opacity:0;pointer-events:none}
+.opts span{display:grid;place-items:center;min-height:42px;padding:4px 10px;border-radius:10px;border:1px solid var(--line);font-size:.88rem;text-align:center;background:var(--bg);cursor:pointer}
+.opts.emo span{font-size:1.5rem;min-width:56px}
+.opts input:checked+span{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.opts input:focus-visible+span{outline:3px solid var(--accent)}
+.lembrete{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:.88rem;color:var(--muted)}
+.lembrete b{color:var(--ink)}
+.resumo{display:grid;gap:6px;font-size:.92rem}
+.resumo div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.resumo div:last-child{border-bottom:0}
+.resumo span{color:var(--muted)}
+.repsec{display:grid;gap:10px}
+.repsec h3{margin:6px 0 0;font-family:var(--f-display);font-size:1rem;text-transform:uppercase;letter-spacing:.04em}
+.banner{margin-top:12px;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--r);background:var(--warn-soft);border:1px solid var(--warn);color:var(--ink);width:100%;text-align:left;font:inherit;cursor:pointer}
+.banner svg{width:22px;height:22px;color:var(--warn);flex:none}
 .aviso{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;background:var(--warn-soft);border-radius:12px;padding:12px}
 .aviso>svg{width:28px;height:28px;color:var(--warn)}
 .alertmark{color:var(--warn);font-weight:700}
@@ -154,7 +175,8 @@ ul.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 
 /* bottom nav */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav.tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs .wrap{display:grid;grid-template-columns:repeat(var(--ntabs,4),1fr)}
+nav.tabs button{min-width:0;overflow:hidden;text-overflow:ellipsis}
 nav.tabs button{height:62px;border:0;background:none;display:grid;justify-items:center;align-content:center;gap:3px;font-size:.75rem;color:var(--muted);font-weight:700}
 nav.tabs button svg{width:22px;height:22px}
 nav.tabs button[aria-current="page"]{color:var(--accent)}
@@ -281,7 +303,7 @@ dialog.sheet::backdrop{background:rgb(10 14 22 / .5)}
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {getAuth,onAuthStateChanged,RecaptchaVerifier,signInWithPhoneNumber,signOut,GoogleAuthProvider,signInWithPopup,sendSignInLinkToEmail,isSignInWithEmailLink,signInWithEmailLink} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,onSnapshot,collection,writeBatch} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {initializeFirestore,doc,getDoc,getDocs,setDoc,updateDoc,deleteDoc,onSnapshot,collection,writeBatch,query,where,documentId} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {firebaseConfig} from "./firebase-config.js";
 (function(){
 "use strict";
@@ -344,6 +366,7 @@ const I={
  repeat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3M4 11V9a3 3 0 0 1 3-3h13M7 21l-3-3 3-3M20 13v2a3 3 0 0 1-3 3H4"/></svg>',
  store:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5L5.5 4h13L20 9.5M4 9.5h16M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0M5.5 12v8h13v-8M10 20v-4.5h4V20"/></svg>',
  chev:'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>',
+ clip:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4h6v3H9zM8.5 12h7M8.5 16h4.5"/></svg>',
  meio:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg>',
  alerta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.8 19.5h18.4L12 3.5z"/><path d="M12 10v4.2M12 17.2v.1"/></svg>',
  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -494,10 +517,26 @@ function toast(msg,undo){
 }
 
 /* ---------- render ---------- */
+/* A tela é redesenhada quando chegam dados novos (outra pessoa marcou uma tarefa, por exemplo).
+   Para não apagar o que está sendo digitado, guarda os formulários alterados e o foco, e restaura depois. */
+function capturarForms(){
+  const out={};
+  document.querySelectorAll("#app form[data-form]").forEach(f=>{const n=f.dataset.form;if(!(S.dirty&&S.dirty[n]))return;
+    out[n]=[...f.elements].filter(e=>e.name).map(e=>({name:e.name,type:e.type,value:e.value,checked:e.checked}))});
+  return out;
+}
+function restaurarForms(keep){
+  for(const n in keep){const f=document.querySelector('#app form[data-form="'+n+'"]');if(!f)continue;
+    keep[n].forEach(c=>{[...f.elements].forEach(e=>{if(e.name!==c.name)return;
+      if(c.type==="radio"||c.type==="checkbox"){if(e.value===c.value)e.checked=c.checked}else e.value=c.value})})}
+}
 function render(){
-  const ae=document.activeElement,pos=ae&&ae.id==="busca"?ae.selectionStart:null;
+  const ae=document.activeElement;
+  const foco=ae&&ae.id&&$("#app")&&$("#app").contains(ae)?{id:ae.id,pos:typeof ae.selectionStart==="number"?ae.selectionStart:null}:null;
+  const keep=capturarForms();
   render0();
-  if(pos!=null){const b=$("#busca");if(b){b.focus();try{b.setSelectionRange(pos,pos)}catch(e){}}}
+  restaurarForms(keep);
+  if(foco){const b=document.getElementById(foco.id);if(b&&b!==document.activeElement){b.focus({preventScroll:true});if(foco.pos!=null)try{b.setSelectionRange(foco.pos,foco.pos)}catch(e){}}}
 }
 function render0(){
   const top=$("#top"),app=$("#app"),tabs=$("#tabs");
@@ -518,10 +557,11 @@ function render0(){
    (showDate?'<div class="datebar"><button class="iconbtn" data-act="dia" data-n="-1" aria-label="Dia anterior">'+I.left+'</button><div class="d">'+esc(fmtDia(S.dk))+"<small>"+(S.dk===today()?"Hoje":S.dk>today()?"Planejamento":"Dia encerrado")+'</small></div><button class="iconbtn" data-act="dia" data-n="1" aria-label="Próximo dia">'+I.right+"</button>"+(S.dk!==today()?'<button class="todaybtn" data-act="hoje">Hoje</button>':"")+"</div>":"")+"</div>";
   if(isGestor()){
     tabs.hidden=false;
-    const T=[["hoje","Checklist",I.list],["equipe","Indicadores",I.chart],["rotina","Rotina",I.repeat],["loja","Equipe",I.store]];
-    tabs.innerHTML='<div class="wrap">'+T.map(t=>'<button data-act="tab" data-tab="'+t[0]+'"'+(S.tab===t[0]?' aria-current="page"':"")+">"+t[2]+t[1]+"</button>").join("")+"</div>";
+    const T=[["hoje","Checklist",I.list],["reporte","Reporte",I.clip],["equipe","Indicadores",I.chart],["rotina","Rotina",I.repeat],["loja","Equipe",I.store]];
+    tabs.style.setProperty("--ntabs",T.length);
+    tabs.innerHTML='<div class="wrap">'+T.map(t=>'<button data-act="tab" data-tab="'+t[0]+'"'+(S.tab===t[0]?' aria-current="page"':"")+">"+t[2]+t[1]+(t[0]==="reporte"&&repPendente()?' <span class="dot" aria-label="pendente"></span>':"")+"</button>").join("")+"</div>";
   } else {tabs.hidden=true;S.tab="hoje"}
-  app.innerHTML={hoje:viewHoje,equipe:viewEquipe,rotina:viewRotina,loja:viewLoja}[S.tab]();
+  app.innerHTML={hoje:viewHoje,reporte:viewReporte,equipe:viewEquipe,rotina:viewRotina,loja:viewLoja}[S.tab]();
 }
 
 /* Trava do dia: só se marca o dia de hoje. A diretoria pode corrigir dias anteriores. */
@@ -553,6 +593,112 @@ function marcarFeito(id){
 function avisoDiaFechado(){
   toast(S.dk<today()?"O dia "+dm(S.dk)+" já foi encerrado. Não é possível marcar atividades de dias anteriores.":"Este dia ainda não começou. As atividades só podem ser marcadas no próprio dia.");
 }
+/* ---------- registro do dia e reporte semanal ---------- */
+const CLIMAS=[["bom","😀","Bom"],["medio","😐","Neutro"],["ruim","😞","Ruim"]];
+const VENDAS=[["acima","Acima da meta"],["dentro","Dentro da meta"],["abaixo","Abaixo da meta"],["nao","Não conferi"]];
+const CAIXA=[["nao","Não"],["sobra","Sim, sobra"],["falta","Sim, falta"]];
+const emoClima=c=>(CLIMAS.find(x=>x[0]===c)||["","–"])[1];
+const txtVendas=v=>(VENDAS.find(x=>x[0]===v)||["","–"])[1];
+const semanaDe=dk=>addDays(dk,-((parseDk(dk).getDay()+6)%7));
+const idSemana=dk=>"sem-"+semanaDe(dk);
+const ehGestorReal=()=>papelReal()==="gerente"||papelReal()==="diretoria";
+function repPendente(){
+  if(!ehGestorReal()||S.equipe||!S.repAtual)return false;
+  const dow=parseDk(today()).getDay();
+  return (dow===5||dow===6)&&!S.repAtual.enviado;
+}
+function regDiaHtml(){
+  if(!isGestor())return"";
+  const reg=S.regDia||null,hoje=S.dk===today();
+  if(!hoje){
+    if(!reg)return"";
+    return'<section class="regdia"><h3>'+I.clip+'Registro do dia</h3>'+resumoReg(reg)+"</section>";
+  }
+  if(reg&&!S.editReg)return'<section class="regdia"><h3>'+I.clip+'Registro do dia</h3>'+resumoReg(reg)+'<button class="btn" data-act="editReg">Editar registro</button></section>';
+  const r=reg||{};
+  const op=(name,list,sel,cls)=>'<div class="opts'+(cls?" "+cls:"")+'">'+list.map(x=>'<label><input type="radio" name="'+name+'" value="'+x[0]+'"'+(x[0]===sel?" checked":"")+"><span"+(x[2]?' title="'+esc(x[2])+'"':"")+">"+esc(x[1])+"</span></label>").join("")+"</div>";
+  return'<section class="regdia"><h3>'+I.clip+'Registro do dia</h3><p class="hint" style="margin:0;font-size:.85rem;color:var(--muted)">Preencha no fechamento. Leva menos de um minuto e já monta o seu reporte da semana.</p>'+
+   '<form data-form="regDia" style="display:grid;gap:12px">'+
+   '<div class="field"><span class="lbl">Clima da equipe hoje</span>'+op("clima",CLIMAS,r.clima,"emo")+'</div>'+
+   '<div class="field"><label for="fRegClimaObs">Se não foi 😀, o que aconteceu? (opcional)</label><input type="text" id="fRegClimaObs" name="climaObs" maxlength="200" value="'+esc(r.climaObs||"")+'"></div>'+
+   '<div class="field"><label for="fRegFaltas">Faltas ou atestados hoje (opcional)</label><input type="text" id="fRegFaltas" name="faltas" maxlength="200" placeholder="Ex.: Lucas, atestado" value="'+esc(r.faltas||"")+'"></div>'+
+   '<div class="field"><span class="lbl">Teve diferença de caixa?</span>'+op("caixa",CAIXA,r.caixa)+'<input type="text" id="fRegCaixaObs" name="caixaObs" maxlength="200" placeholder="Se teve, explique rapidamente (opcional)" value="'+esc(r.caixaObs||"")+'"></div>'+
+   '<div class="field"><span class="lbl">Ritmo de vendas no FUTURA hoje</span>'+op("vendas",VENDAS,r.vendas)+'<span class="help">Confira no FUTURA se as vendas estão no ritmo da meta diária. Não precisa informar valores.</span></div>'+
+   '<button class="btn primary block">Salvar registro do dia</button></form></section>';
+}
+function resumoReg(r){
+  const cx=(CAIXA.find(x=>x[0]===r.caixa)||["","–"])[1];
+  return'<div class="resumo"><div><span>Clima da equipe</span><b>'+esc(emoClima(r.clima))+(r.climaObs?" · "+esc(r.climaObs):"")+"</b></div>"+
+   "<div><span>Faltas/atestados</span><b>"+esc(r.faltas||"Nenhuma")+"</b></div>"+
+   "<div><span>Diferença de caixa</span><b>"+esc(cx)+(r.caixaObs?" · "+esc(r.caixaObs):"")+"</b></div>"+
+   "<div><span>Vendas (FUTURA)</span><b>"+esc(txtVendas(r.vendas))+"</b></div>"+
+   (r.por?'<div><span>Registrado por</span><b>'+esc(nomeDe(r.por))+" às "+esc(fmtHora(r.em))+"</b></div>":"")+"</div>";
+}
+async function carregarSemanaRep(){
+  const ini=S.repSem,dks=[0,1,2,3,4,5,6].map(i=>addDays(ini,i)).filter(dk=>dk<=today());
+  S.repDias=null;render();
+  try{
+    const [docs,regs]=await Promise.all([
+      Promise.all(dks.map(dk=>dk===S.dk&&S.dayExists?Promise.resolve(S.day):dayRef(dk).get().then(x=>x.exists?x.data():null))),
+      Promise.all(dks.map(dk=>S.db.doc("reportes/dia-"+dk).get().then(x=>x.exists?x.data():null)))]);
+    S.repDias=dks.map((dk,i)=>({dk,d:Object.assign({},docs[i]||{},{reg:regs[i]})}));
+  }catch(e){console.error(e);S.repDias=[]}
+  render();
+}
+function assinarRep(){
+  if(unsub.rep){unsub.rep();unsub.rep=null}
+  if(!S.repSem)return;
+  const sem=S.repSem;
+  unsub.rep=S.db.doc("reportes/"+idSemana(sem)).onSnapshot(x=>{if(S.repSem!==sem)return;S.rep=x.exists?x.data():null;S.repOk=true;if(sem===semanaDe(today()))S.repAtual=S.rep||{};render()},e=>console.error(e));
+}
+function viewReporte(){
+  if(!S.repSem){S.repSem=semanaDe(today());S.repOk=false;assinarRep();setTimeout(carregarSemanaRep,0)}
+  const sem=S.repSem,fim=addDays(sem,6),atual=sem===semanaDe(today());
+  let h='<div class="wrap"><div class="datebar" style="margin-top:12px"><button class="iconbtn" data-act="repSem" data-n="-7" aria-label="Semana anterior">'+I.left+'</button><div class="d">Semana de '+esc(dm(sem))+" a "+esc(dm(fim))+"<small>"+(atual?"Esta semana":"Semana anterior")+'</small></div><button class="iconbtn" data-act="repSem" data-n="7" aria-label="Próxima semana"'+(atual?" disabled":"")+">"+I.right+"</button></div>";
+  const rep=S.rep;
+  h+='<section class="sec"><h2>Reporte da semana</h2><p class="hint">Envie na sexta ou no sábado. Substitui o resuminho do WhatsApp. Se estiver tudo bem em algum campo, deixe em branco.</p>'+
+   (rep&&rep.enviado?'<div class="lembrete" style="background:var(--ok-soft)"><b style="color:var(--ok)">Enviado</b> por '+esc(nomeDe(rep.por))+" em "+esc(dm(dkOf(new Date(rep.enviado)))+" às "+fmtHora(rep.enviado))+". Você pode editar e reenviar.</div>":'<div class="lembrete"><b>Ainda não enviado.</b></div>')+"</section>";
+  // resumo automático
+  h+='<section class="sec"><h2>Resumo automático</h2><p class="hint">Montado a partir do checklist e dos registros do dia. Não precisa digitar de novo.</p>';
+  if(!S.repDias)h+='<div class="loading" style="padding:20px 0">Calculando…</div>';
+  else{
+    const ds=S.repDias,regs=ds.filter(x=>x.d&&x.d.reg);
+    let tot=0,ok=0,nao=0,par=0;ds.forEach(x=>{const its=Object.values((x.d&&x.d.itens)||{}).filter(i=>i&&!i.removido);tot+=its.length;ok+=its.filter(i=>i.st==="feito").length;nao+=its.filter(i=>i.st==="nao").length;par+=its.filter(i=>i.st==="parcial").length});
+    const faltas=regs.filter(x=>x.d.reg.faltas).map(x=>DIAS[parseDk(x.dk).getDay()]+": "+x.d.reg.faltas);
+    const caixa=regs.filter(x=>x.d.reg.caixa==="sobra"||x.d.reg.caixa==="falta").map(x=>DIAS[parseDk(x.dk).getDay()]+": "+(x.d.reg.caixa==="sobra"?"sobra":"falta")+(x.d.reg.caixaObs?" ("+x.d.reg.caixaObs+")":""));
+    const clima=regs.map(x=>DIAS[parseDk(x.dk).getDay()]+" "+emoClima(x.d.reg.clima)).join("  ");
+    const vend=regs.filter(x=>x.d.reg.vendas&&x.d.reg.vendas!=="nao");const abaixo=vend.filter(x=>x.d.reg.vendas==="abaixo").length;
+    h+='<div class="card resumo"><div><span>Checklist realizado</span><b>'+(tot?Math.round(ok/tot*100):0)+"% · "+ok+" de "+tot+"</b></div>"+
+     "<div><span>Não realizadas / parciais</span><b>"+nao+" / "+par+"</b></div>"+
+     "<div><span>Dias com registro do dia</span><b>"+regs.length+" de "+ds.length+"</b></div>"+
+     "<div><span>Clima por dia</span><b>"+esc(clima||"–")+"</b></div>"+
+     "<div><span>Faltas/atestados</span><b>"+esc(faltas.join(" · ")||"Nenhuma registrada")+"</b></div>"+
+     "<div><span>Diferenças de caixa</span><b>"+esc(caixa.join(" · ")||"Nenhuma registrada")+"</b></div>"+
+     "<div><span>Vendas no ritmo (FUTURA)</span><b>"+(vend.length?(vend.length-abaixo)+" de "+vend.length+" dias conferidos":"Não conferido")+"</b></div></div>";
+  }
+  h+="</section>";
+  // formulário
+  const r=rep||{};
+  const op=(name,list,sel,cls)=>'<div class="opts'+(cls?" "+cls:"")+'">'+list.map(x=>'<label><input type="radio" name="'+name+'" value="'+x[0]+'"'+(x[0]===sel?" checked":"")+"><span"+(x[2]?' title="'+esc(x[2])+'"':"")+">"+esc(x[1])+"</span></label>").join("")+"</div>";
+  const ta=(id,name,label,ph)=>'<div class="field"><label for="'+id+'">'+label+'</label><textarea id="'+id+'" name="'+name+'" rows="2" maxlength="600" placeholder="'+esc(ph||"")+'">'+esc(r[name]||"")+"</textarea></div>";
+  h+='<form class="sec repsec" data-form="reporte">'+
+   '<h3>📊 Vendas</h3><div class="lembrete">Os valores ficam no <b>FUTURA</b>. Aqui você só informa se acompanhou e como está o ritmo para a meta do mês.</div>'+
+   '<div class="field"><span class="lbl">Ritmo para a meta do mês</span>'+op("ritmo",[["acima","Acima"],["dentro","Dentro"],["abaixo","Abaixo"]],r.ritmo)+"</div>"+
+   ta("fRepVendasObs","vendasObs","Se está abaixo, o que está sendo feito? (opcional)")+
+   '<h3>👥 Equipe</h3><div class="field"><span class="lbl">Clima geral da semana</span>'+op("clima",CLIMAS,r.clima,"emo")+"</div>"+
+   ta("fRepClimaObs","climaObs","Se não foi 😀, conte rapidamente o que aconteceu")+
+   ta("fRepFaltas","faltas","Faltas ou atestados além dos registrados no dia (opcional)")+
+   '<h3>🏬 Loja</h3>'+ta("fRepPend","pendencia","Pendência nova ou que mudou nesta semana")+
+   '<h3>📦 Estoque</h3>'+ta("fRepEstoque","estoque","Pedido feito ou falta de mercadoria nesta semana")+
+   '<div class="field"><span class="lbl">Promoção exposta conforme combinado?</span>'+op("promo",[["sim","Sim"],["nao","Não"],["na","Sem promoção"]],r.promo)+"</div>"+
+   '<h3>⚠️ Urgências, manutenção e informática</h3>'+
+   ta("fRepUrg","urgente","Precisa de decisão da diretoria com urgência","Urgência real? Chame a diretoria direto, como sempre.")+
+   ta("fRepPlan","planejar","Pode ser planejado")+
+   ta("fRepFut","futuro","Precisa de atenção futura")+
+   '<button class="btn primary block">'+(r.enviado?"Salvar alterações":"Enviar reporte da semana")+"</button></form>";
+  return h+"</div>";
+}
+
 function statusOf(it){
   if(it.st==="feito")return"feito";
   if(it.st==="nao")return"nao";
@@ -582,6 +728,7 @@ function viewHoje(){
   h+='<div class="prog"><div class="big">'+pct+"%<span>realizado</span></div>"+
     '<div class="bar" role="img" aria-label="'+ok+" de "+n+' realizadas"><i class="b-ok" style="width:'+(n?ok/n*100:0)+'%"></i><i class="b-warn" style="width:'+(n?par/n*100:0)+'%"></i><i class="b-bad" style="width:'+(n?nao/n*100:0)+'%"></i></div>'+
     '<div class="nums"><span><b>'+ok+"</b> de "+n+" realizadas</span><span><b>"+nao+"</b> não realizadas</span>"+(par?"<span><b>"+par+"</b> parciais</span>":"")+(late?'<span style="color:var(--warn)"><b style="color:var(--warn)">'+late+"</b> atrasadas</span>":"")+"</div></div>";
+  if(repPendente()&&S.dk===today())h+='<button class="banner" data-act="tab" data-tab="reporte">'+I.alerta+'<span><b>Reporte da semana pendente.</b> Envie hoje pela aba Reporte.</span></button>';
   h+=buscaHtml();
   // filtros
   h+='<div class="chips" role="group" aria-label="Filtro">'+
@@ -594,6 +741,7 @@ function viewHoje(){
   }
   h+="</div>";
   h+='<div id="lista">'+listaHtml(all,base)+"</div>";
+  h+=regDiaHtml();
   h+="</div>";
   if(gestor&&S.dk>=today())h+='<button class="fab'+(gestor?"":" solo")+'" data-act="novaTarefa">'+I.plus+"Tarefa do dia</button>";
   return h;
@@ -814,6 +962,11 @@ async function carregarPainel(){
       return{dk,total:its.length,feito:its.filter(x=>x.st==="feito").length,nao:its.filter(x=>x.st==="nao").length,parcial:its.filter(x=>x.st==="parcial").length,
         marc:marc.length,ultimo:marc.map(x=>x.em||"").sort().pop()||"",doDia:its.filter(x=>x.o==="dia"&&x.cd===dk).length,al:its.filter(x=>x.st==="feito"&&x.al).length}})});
     S.painel.dados=dados;S.painel.dks=dks;S.painel.em=new Date().toISOString();
+    const semA=semanaDe(t),semP=addDays(semA,-7);
+    const reps=await Promise.all(lojas.map(l=>Promise.all([semA,semP].map(sm=>getDoc(doc(FB.db,"lojas/"+l.id+"/reportes/"+idSemana(sm))).then(x=>x.exists()?x.data():null)))));
+    S.painel.reps={};lojas.forEach((l,j)=>{S.painel.reps[l.id]={[semA]:reps[j][0],[semP]:reps[j][1]}});
+    const regsQ=await Promise.all(lojas.map(l=>getDocs(query(collection(FB.db,"lojas/"+l.id+"/reportes"),where(documentId(),">=","dia-"+dks[0]),where(documentId(),"<=","dia-"+t)))));
+    S.painel.regs={};lojas.forEach((l,j)=>{S.painel.regs[l.id]={};regsQ[j].docs.forEach(d=>{S.painel.regs[l.id][d.id.slice(4)]=d.data()})});
   }catch(e){console.error(e);toast("Não foi possível carregar o painel. Confira a internet e tente de novo.")}
   S.painel.loading=false;render();
   const hw=$("#heatwrap");if(hw)hw.scrollLeft=hw.scrollWidth;
@@ -833,6 +986,41 @@ function situacao(r,n){
   if(q>=0.7)return["ok","Uso constante"];
   if(q>=0.3)return["late","Uso irregular"];
   return["bad","Pouco uso"];
+}
+function reportesPainelHtml(lojas){
+  const P=S.painel;if(!P.reps)return"";
+  const semA=semanaDe(today()),sem=P.semRep==="ant"?addDays(semA,-7):semA,fim=addDays(sem,6);
+  const ritmoTxt={acima:["ok","Acima"],dentro:["ok","Dentro"],abaixo:["bad","Abaixo"]};
+  let h='<section class="sec"><h2>Reportes semanais</h2><div class="chips" style="padding:0"><button class="chip" data-act="painelSem" data-v="atual" aria-pressed="'+(P.semRep!=="ant")+'">Esta semana</button><button class="chip" data-act="painelSem" data-v="ant" aria-pressed="'+(P.semRep==="ant")+'">Semana passada</button></div>'+
+   '<p class="hint">Semana de '+esc(dm(sem))+" a "+esc(dm(fim))+'. Clima, faltas e caixa vêm dos registros diários do fechamento. Toque na loja para ler o reporte completo.</p><div class="card scroll-x"><table class="ptable rank"><thead><tr><th>Loja</th><th>Reporte</th><th>Clima</th><th>Vendas</th><th>Promoção</th><th>Dif. caixa</th><th>Faltas</th><th>Registro do dia</th><th>Urgente</th></tr></thead><tbody>';
+  h+=lojas.map(x=>{const rep=(P.reps[x.l.id]||{})[sem];const regs=Object.entries((P.regs||{})[x.l.id]||{}).filter(([dk])=>dk>=sem&&dk<=fim).map(e=>e[1]);
+    const dias=Math.min(7,diffDias(sem,today())+1);
+    const cx=regs.filter(r=>r.caixa==="sobra"||r.caixa==="falta").length,fal=regs.filter(r=>r.faltas).length,ruins=regs.filter(r=>r.clima==="ruim").length;
+    const rt=rep&&ritmoTxt[rep.ritmo];
+    return'<tr><td class="loja"><button data-act="verReporte" data-id="'+esc(x.l.id)+'">'+esc(x.l.nome||"Sem nome")+"</button></td>"+
+     "<td>"+(rep?'<span class="pill ok">'+esc(dm(dkOf(new Date(rep.enviado))))+"</span>":'<span class="pill '+(sem<semA||[5,6,0].includes(parseDk(today()).getDay())?"bad":"")+'">Pendente</span>')+"</td>"+
+     "<td>"+(rep?esc(emoClima(rep.clima)):"–")+(ruins?' <span class="alertmark">'+ruins+"😞</span>":"")+"</td>"+
+     "<td>"+(rt?'<span class="pill '+rt[0]+'">'+rt[1]+"</span>":"–")+"</td>"+
+     "<td>"+(rep&&rep.promo?(rep.promo==="sim"?"Sim":rep.promo==="nao"?'<span class="alertmark">Não</span>':"–"):"–")+"</td>"+
+     "<td>"+(cx?'<span class="alertmark">'+cx+"</span>":"–")+"</td><td>"+(fal||"–")+"</td><td>"+regs.length+"/"+dias+"</td>"+
+     "<td>"+(rep&&rep.urgente?'<span class="pill bad">Sim</span>':"–")+"</td></tr>"}).join("");
+  return h+"</tbody></table></div></section>";
+}
+function sheetReporte(id){
+  const P=S.painel,l=(S.lojas||[]).find(x=>x.id===id);if(!l)return;
+  const semA=semanaDe(today()),sem=P.semRep==="ant"?addDays(semA,-7):semA,fim=addDays(sem,6);
+  const rep=((P.reps||{})[id]||{})[sem];
+  const regs=Object.entries((P.regs||{})[id]||{}).filter(([dk])=>dk>=sem&&dk<=fim).sort();
+  const lin=(a,b)=>b?"<div><span>"+a+"</span><b>"+esc(b)+"</b></div>":"";
+  let h='<p class="hint" style="margin:0;color:var(--muted)">Semana de '+esc(dm(sem))+" a "+esc(dm(fim))+"</p>";
+  if(rep){
+    h+='<div class="resumo">'+lin("Enviado",dm(dkOf(new Date(rep.enviado)))+" às "+fmtHora(rep.enviado))+lin("Ritmo para a meta",{acima:"Acima",dentro:"Dentro",abaixo:"Abaixo"}[rep.ritmo]||"")+lin("Vendas: o que está sendo feito",rep.vendasObs)+
+     lin("Clima da semana",emoClima(rep.clima)+(rep.climaObs?" · "+rep.climaObs:""))+lin("Faltas/atestados",rep.faltas)+lin("Pendência da loja",rep.pendencia)+lin("Estoque",rep.estoque)+
+     lin("Promoção exposta",{sim:"Sim",nao:"Não",na:"Sem promoção"}[rep.promo]||"")+lin("⚠️ Urgente",rep.urgente)+lin("Pode ser planejado",rep.planejar)+lin("Atenção futura",rep.futuro)+"</div>";
+  }else h+='<div class="lembrete"><b>Reporte ainda não enviado.</b></div>';
+  h+='<h4 style="margin:6px 0 0">Registros do dia</h4>'+(regs.length?'<div class="resumo">'+regs.map(([dk,r])=>"<div><span>"+esc(DIAS[parseDk(dk).getDay()]+" "+dm(dk))+"</span><b>"+esc(emoClima(r.clima)+" · caixa: "+((CAIXA.find(x=>x[0]===r.caixa)||["","–"])[1])+" · vendas: "+txtVendas(r.vendas)+(r.faltas?" · faltas: "+r.faltas:"")+(r.climaObs?" · "+r.climaObs:"")+(r.caixaObs?" · "+r.caixaObs:""))+"</b></div>").join("")+"</div>":'<p class="hint" style="margin:0">Nenhum registro do dia nesta semana.</p>')+
+   '<button class="btn block" data-act="abrirLoja" data-id="'+esc(id)+'">Abrir a loja</button>';
+  openSheet(l.nome||"Loja",h);
 }
 function corPct(p){return p==null?"":"background:color-mix(in srgb,var(--ok) "+Math.max(12,p)+"%,var(--surface));color:"+(p>=55?"var(--surface)":"var(--ink)")}
 function viewPainel(){
@@ -863,6 +1051,7 @@ function viewPainel(){
   const porDia=dks.map((dk,i)=>{const ds=lojas.map(x=>x.dias[i]).filter(d=>d&&d.marc);return{dk,lojas:ds.length}});
   h+='<section class="sec"><h2>Lojas usando o app por dia</h2><div class="card"><div class="trend" role="img" aria-label="Quantidade de lojas com uso em cada dia">'+porDia.map(d=>'<div class="c" title="'+esc(dm(d.dk))+": "+d.lojas+" de "+lojas.length+' lojas"><i style="height:'+(lojas.length?d.lojas/lojas.length*100:0)+'%"></i><span>'+d.lojas+"<br>"+esc(d.dk.slice(8))+"</span></div>").join("")+"</div></div></section>";
   // comparativo
+  h+=reportesPainelHtml(lojas);
   h+='<section class="sec"><h2>Comparativo das lojas</h2><p class="hint">Ordenado pelo percentual realizado nos dias com uso. “Com aviso” conta as atividades marcadas logo após serem criadas ou várias de uma vez, em sequência. Toque no nome para abrir a loja.</p><div class="card scroll-x"><table class="ptable rank"><thead><tr><th>Loja</th><th>Realizado</th><th>Dias com uso</th><th>Marcadas</th><th title="Marcadas logo após serem criadas ou várias em sequência">Com aviso</th><th>Parciais</th><th>Não real.</th><th>Tarefas do dia</th><th>Último uso</th><th>Situação</th></tr></thead><tbody>'+
    lojas.map(x=>{const r=x.r,[cls,txt]=situacao(r,n);
      return'<tr><td class="loja"><button data-act="abrirLoja" data-id="'+esc(x.l.id)+'">'+esc(x.l.nome||"Sem nome")+"</button></td><td>"+(r.pct==null?"–":r.pct+'%<span class="bar"><i class="b-ok" style="width:'+r.pct+'%"></i></span>')+"</td><td>"+r.diasUso+"/"+n+"</td><td>"+(r.marc||"–")+"</td><td>"+(r.al?'<span class="alertmark">'+r.al+(r.marc?" ("+Math.round(r.al/r.marc*100)+"%)":"")+"</span>":"–")+"</td><td>"+(r.parcial||"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.doDia||"–")+"</td><td>"+(r.ultimo?esc(dm(dkOf(new Date(r.ultimo)))+" "+fmtHora(r.ultimo)):"–")+'</td><td><span class="pill '+cls+'">'+esc(txt)+"</span></td></tr>"}).join("")+"</tbody></table></div></section>";
@@ -1120,10 +1309,14 @@ const acts={
   },
   sairPreview(){closeSheet();S.verComo=null;S.tab=S.tabDir||"hoje";S.filtro="todas";S.ind=null;render();maybeCreateToday();scrollTo(0,0)},
   lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
-  abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
+  abrirLoja(el){closeSheet();abrirLoja(el.dataset.id);scrollTo(0,0)},
+  editReg(){S.editReg=true;render()},
+  repSem(el){const n=Number(el.dataset.n),novo=addDays(S.repSem,n);if(novo>semanaDe(today()))return;S.repSem=novo;S.rep=null;S.repOk=false;if(S.dirty)delete S.dirty.reporte;assinarRep();carregarSemanaRep();scrollTo(0,0)},
+  verReporte(el){sheetReporte(el.dataset.id)},
   dirView(el){S.dirView=el.dataset.v;render();scrollTo(0,0)},
   painelDias(el){S.painel.dias=Number(el.dataset.d);S.painel.dados=null;carregarPainel()},
   painelAtualizar(){S.painel.dados=null;carregarPainel()},
+  painelSem(el){S.painel.semRep=el.dataset.v;if(el.dataset.v==="ant"&&S.painel.dias<14){S.painel.dias=14;S.painel.dados=null;carregarPainel()}else render()},
   sair(){closeSheet();salvarEquipe(null);signOut(FB.auth)},
   entrarEquipe(){
     const k=($("#fEqPessoa")||{}).value,pin=(($("#fEqPin")||{}).value||"").trim();
@@ -1257,6 +1450,22 @@ const forms={
     if(!email){toast("Digite um e-mail válido.");return}
     concluirLink(email);
   },
+  regDia(f){
+    const fd=new FormData(f),dk=S.dk;
+    if(!podeMarcarDia()){avisoDiaFechado();return}
+    const reg={clima:fd.get("clima")||"",climaObs:(fd.get("climaObs")||"").trim(),faltas:(fd.get("faltas")||"").trim(),caixa:fd.get("caixa")||"",caixaObs:(fd.get("caixaObs")||"").trim(),vendas:fd.get("vendas")||"",por:meuKey(),em:new Date().toISOString()};
+    if(!reg.clima||!reg.caixa||!reg.vendas){toast("Marque o clima, a diferença de caixa e o ritmo de vendas.");return}
+    grava("reportes/dia-"+dk,()=>S.db.doc("reportes/dia-"+dk).set(reg)).then(ok=>{if(ok){S.editReg=false;toast("Registro do dia salvo.");if(S.repSem===semanaDe(dk))carregarSemanaRep()}});
+  },
+  reporte(f){
+    const fd=new FormData(f),g=k=>(fd.get(k)||"").trim();
+    const rep={semana:S.repSem,ritmo:g("ritmo"),vendasObs:g("vendasObs"),clima:g("clima"),climaObs:g("climaObs"),faltas:g("faltas"),pendencia:g("pendencia"),estoque:g("estoque"),promo:g("promo"),
+      urgente:g("urgente"),planejar:g("planejar"),futuro:g("futuro"),por:meuKey(),enviado:new Date().toISOString()};
+    if(!rep.ritmo||!rep.clima){toast("Marque o ritmo de vendas e o clima da semana.");return}
+    if(S.repDias){const regs=S.repDias.filter(x=>x.d&&x.d.reg);rep.auto={diasReg:regs.length,caixa:regs.filter(x=>x.d.reg.caixa==="sobra"||x.d.reg.caixa==="falta").length,faltas:regs.filter(x=>x.d.reg.faltas).length}}
+    const sem=S.repSem;
+    grava("reportes/"+sem,()=>S.db.doc("reportes/"+idSemana(sem)).set(rep)).then(ok=>ok&&toast("Reporte da semana enviado para a diretoria."));
+  },
   pinGerente(f){
     const pin=String(new FormData(f).get("pin")||"").trim();
     hashPin(pin).then(h=>{if(S.equipe&&h===S.equipe.pin){closeSheet();sairEquipe()}else toast("Senha incorreta.")});
@@ -1333,8 +1542,12 @@ document.addEventListener("click",e=>{
 });
 document.addEventListener("submit",e=>{
   const f=e.target.closest("form[data-form]");if(!f)return;e.preventDefault();
+  if(S.dirty)delete S.dirty[f.dataset.form];
   const fn=forms[f.dataset.form];if(fn)fn(f);
 });
+function marcarAlterado(e){const f=e.target.closest&&e.target.closest("#app form[data-form]");if(f){S.dirty=S.dirty||{};S.dirty[f.dataset.form]=true}}
+document.addEventListener("input",marcarAlterado);
+document.addEventListener("change",marcarAlterado);
 document.addEventListener("input",e=>{
   if(e.target.id!=="busca")return;
   S.busca=e.target.value;
@@ -1351,8 +1564,10 @@ document.addEventListener("change",e=>{
 
 /* ---------- assinaturas ---------- */
 function setDay(dk){
-  S.dk=dk;S.day=null;S.dayOk=false;S.dayExists=false;
+  S.dk=dk;S.day=null;S.dayOk=false;S.dayExists=false;S.regDia=null;S.editReg=false;if(S.dirty)delete S.dirty.regDia;
   if(unsub.day)unsub.day();
+  if(unsub.reg){unsub.reg();unsub.reg=null}
+  if(ehGestorReal())unsub.reg=S.db.doc("reportes/dia-"+dk).onSnapshot(x=>{if(S.dk!==dk)return;S.regDia=x.exists?x.data():null;render()},e=>console.error(e));
   render();
   unsub.day=dayRef(dk).onSnapshot(snap=>{
     if(S.dk!==dk)return;
@@ -1411,7 +1626,8 @@ function hashPin(pin){
 function salvarEquipe(eq){try{if(eq)localStorage.setItem("rotina-equipe",JSON.stringify(Object.assign({loja:S.lojaId,tel:S.tel},eq)));else localStorage.removeItem("rotina-equipe")}catch(e){}}
 function sairEquipe(){S.equipe=null;salvarEquipe(null);S.tab="hoje";S.filtro="todas";render();scrollTo(0,0);toast("De volta ao gerente.")}
 function fecharLoja(){
-  ["loja","rotina","day"].forEach(k=>{if(unsub[k]){unsub[k]();unsub[k]=null}});
+  ["loja","rotina","day","rep","repAtual","reg"].forEach(k=>{if(unsub[k]){unsub[k]();unsub[k]=null}});
+  S.rep=null;S.repSem="";S.repDias=null;S.repAtual=null;S.editReg=false;
   S.verComo=null;S.equipe=null;S.loja=null;S.lojaOk=false;S.rotina=null;S.rotinaOk=false;S.day=null;S.dayOk=false;S.dayExists=false;S.ind=null;S.creating={};
 }
 function abrirLoja(id){
@@ -1423,6 +1639,7 @@ function abrirLoja(id){
     if(S.loja&&!isGestor()&&(S.filtro==="pessoa"||S.filtro==="colab"))S.filtro="minhas";
     if(S.equipe&&S.loja&&!naoGerentes().some(m=>m.k===S.equipe.k)){const o=naoGerentes()[0];if(o){S.equipe.k=o.k;salvarEquipe(S.equipe)}else{S.equipe=null;salvarEquipe(null)}}
     render()},dbErr);
+  if(ehGestorReal()){const semA=semanaDe(today());unsub.repAtual=S.db.doc("reportes/"+idSemana(semA)).onSnapshot(x=>{S.repAtual=x.exists?x.data():{};render()},e=>console.error(e))}
   unsub.rotina=S.db.doc("config/rotina").onSnapshot(s=>{S.rotinaOk=true;S.rotina=s.exists?s.data():null;maybeCreateToday();render()},dbErr);
   setDay(S.dk);
 }
