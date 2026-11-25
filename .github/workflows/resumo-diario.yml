@@ -1,0 +1,32 @@
+name: Resumo diário da Rotina BIN
+
+on:
+  schedule:
+    # 10h30 UTC = 7h30 em Brasília, todos os dias
+    - cron: "30 10 * * *"
+  workflow_dispatch:
+    inputs:
+      data_ref:
+        description: "Dia para resumir (AAAA-MM-DD). Vazio = ontem."
+        required: false
+
+jobs:
+  resumo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node resumo-diario.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          DATA_REF: ${{ github.event.inputs.data_ref }}

@@ -48,6 +48,17 @@ O login é por e-mail (link de acesso, sem senha, qualquer provedor) ou pela con
 - **Aba Reporte:** reporte semanal (sexta/sábado) com resumo automático da semana, a partir do checklist e dos registros do dia, mais os campos de vendas, equipe, loja, estoque e urgências. Substitui o resuminho do WhatsApp.
 - Só o gerente da loja e a diretoria leem e escrevem os reportes; colaboradores não têm acesso. A diretoria vê tudo na seção **Reportes semanais** do painel.
 
+## Resumo diário por e-mail
+
+Todo dia às 7h30 (Brasília), o GitHub Actions roda `scripts/resumo-diario.mjs` (`.github/workflows/resumo-diario.yml`): lê o que as lojas registraram no dia anterior e envia para a diretoria só os pontos de atenção (urgências, diferença de caixa, clima ruim, faltas, lojas sem uso, registro do dia não preenchido, marcações com aviso, vendas abaixo do ritmo, reportes pendentes e pedidos de acesso).
+
+Segredos do repositório (Settings → Secrets and variables → Actions):
+- `FIREBASE_SERVICE_ACCOUNT`: JSON da conta de serviço (Firebase → Configurações do projeto → Contas de serviço → Gerar nova chave privada).
+- `SMTP_USER` e `SMTP_PASS`: Gmail que envia e a senha de app dele.
+- `EMAIL_TO`: quem recebe (vários separados por vírgula).
+
+O agendamento do GitHub só roda a partir da branch principal (`main`). Para testar na hora: aba Actions → “Resumo diário da Rotina BIN” → Run workflow.
+
 ## Estrutura dos dados
 
 - `admins/{celular ou e-mail}`: diretoria (cadastrada só pelo console).
