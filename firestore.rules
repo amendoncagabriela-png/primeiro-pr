@@ -1,0 +1,79 @@
+rules_version = '2';
+
+// Regras do app Rotina BIN.
+// - admins/{celular ou e-mail}: diretoria (vê e edita todas as lojas). Cadastrado só pelo console do Firebase.
+// - acessos/{celular ou e-mail}: em qual loja a pessoa entra e com qual papel (gerente ou colaborador).
+// - pedidos/{celular ou e-mail}: pedido de acesso de quem ainda não foi cadastrado.
+// - lojas/{loja}: nome e equipe; config/rotina: rotina da loja; dias/{data}: checklist de cada dia.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Identificador de quem entrou: o celular (login por SMS) ou o e-mail confirmado (login com Google).
+    function tel() {
+      return request.auth.token.get('phone_number', null) != null
+        ? request.auth.token.phone_number
+        : (request.auth.token.get('email_verified', false) == true ? request.auth.token.email.lower() : null);
+    }
+    // Data de hoje no horário de Brasília (UTC-3), no formato AAAA-MM-DD.
+    function dois(n) { return n < 10 ? '0' + string(n) : string(n); }
+    function hojeBR() {
+      let t = request.time - duration.value(3, 'h');
+      return string(t.year()) + '-' + dois(t.month()) + '-' + dois(t.day());
+    }
+    function logado() { return request.auth != null && tel() != null; }
+    function isDir() { return logado() && exists(/databases/$(database)/documents/admins/$(tel())); }
+    function temAcesso() { return logado() && exists(/databases/$(database)/documents/acessos/$(tel())); }
+    function acesso() { return get(/databases/$(database)/documents/acessos/$(tel())).data; }
+    function daLoja(l) { return isDir() || (temAcesso() && acesso().ativo != false && acesso().lojaId == l); }
+    function gerenteDe(l) { return isDir() || (temAcesso() && acesso().ativo != false && acesso().lojaId == l && acesso().papel == 'gerente'); }
+
+    match /admins/{t} {
+      allow read: if logado() && t == tel();
+      allow write: if false;
+    }
+
+    match /acessos/{t} {
+      allow read: if logado() && (t == tel() || isDir() || gerenteDe(resource.data.lojaId));
+      // O gerente só cria, altera ou remove colaboradores da própria loja.
+      allow create: if isDir()
+        || (request.resource.data.papel == 'colaborador' && gerenteDe(request.resource.data.lojaId));
+      allow update: if isDir()
+        || (resource.data.papel == 'colaborador' && request.resource.data.papel == 'colaborador'
+            && resource.data.lojaId == request.resource.data.lojaId && gerenteDe(request.resource.data.lojaId));
+      allow delete: if isDir()
+        || (resource.data.papel == 'colaborador' && gerenteDe(resource.data.lojaId));
+    }
+
+    // Pedido de acesso: quem entrou e ainda não tem cadastro pede; só a diretoria vê e decide.
+    match /pedidos/{t} {
+      allow read: if logado() && (t == tel() || isDir());
+      allow create, update: if logado() && t == tel()
+        && request.resource.data.keys().hasOnly(['nome', 'loja', 'funcao', 'em'])
+        && request.resource.data.nome is string && request.resource.data.nome.size() <= 60;
+      allow delete: if logado() && (t == tel() || isDir());
+    }
+
+    match /lojas/{l} {
+      allow read: if daLoja(l);
+      allow create, delete: if isDir();
+      allow update: if gerenteDe(l);
+
+      match /config/{d} {
+        allow read: if daLoja(l);
+        allow write: if gerenteDe(l);
+      }
+      // Reportes: só o gerente da loja e a diretoria leem e escrevem.
+      // sem-AAAA-MM-DD = reporte semanal; dia-AAAA-MM-DD = registro do dia (fecha junto com o dia).
+      match /reportes/{r} {
+        allow read: if gerenteDe(l);
+        allow write: if gerenteDe(l) && (isDir() || !r.matches('dia-.*') || r >= 'dia-' + hojeBR());
+      }
+      // Trava do dia: gerente e colaborador só alteram o dia de hoje ou dias futuros
+      // (planejamento). Dias anteriores ficam fechados; só a diretoria corrige.
+      match /dias/{dia} {
+        allow read: if daLoja(l);
+        allow write: if isDir() || (daLoja(l) && dia >= hojeBR());
+      }
+    }
+  }
+}
