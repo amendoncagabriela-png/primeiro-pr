@@ -173,6 +173,27 @@ nav.tabs button[aria-current="page"]{color:var(--accent)}
 .manual span{flex:1;min-width:0;display:grid}
 .manual small{color:var(--muted);font-size:.8rem}
 .manual svg.chev{color:var(--accent);width:18px;height:18px;flex:none}
+.wrap.largo{max-width:1180px}
+.seg2{display:flex;gap:6px;background:var(--sunk);border-radius:999px;padding:4px;margin-top:4px}
+.seg2 button{flex:1;height:40px;border:0;border-radius:999px;background:none;font-weight:700;color:var(--muted)}
+.seg2 button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgb(0 0 0 / .12)}
+.kpis.k4{grid-template-columns:repeat(4,1fr)}
+@media (max-width:560px){.kpis.k4{grid-template-columns:repeat(2,1fr)}}
+.heat{border-collapse:separate;border-spacing:3px;font-variant-numeric:tabular-nums;font-size:.78rem}
+.heat th{font-weight:700;color:var(--muted);font-size:.7rem;padding:2px;white-space:nowrap}
+.heat th.loja{text-align:left;font-size:.82rem;color:var(--ink);padding-right:8px;position:sticky;left:0;background:var(--surface);z-index:1;max-width:130px;overflow:hidden;text-overflow:ellipsis}
+.heat td{width:38px;min-width:38px;height:34px;border-radius:6px;text-align:center;font-weight:700}
+.heat td.vazio{background:var(--sunk);color:var(--muted);font-weight:400}
+.heat th.hoje{color:var(--accent)}
+.heatleg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:8px}
+.heatleg i{display:inline-block;width:22px;height:12px;border-radius:3px}
+.rank td.loja{font-weight:700}
+.rank td.loja button{all:unset;cursor:pointer;color:var(--accent);font-weight:700}
+.rank .bar{width:80px;display:inline-flex;vertical-align:middle;margin-left:6px;height:8px}
+.trend{display:flex;align-items:flex-end;gap:3px;height:90px;padding-top:6px}
+.trend .c{flex:1;display:grid;grid-template-rows:1fr auto;height:100%;min-width:0;gap:3px}
+.trend .c i{display:block;background:var(--accent);border-radius:3px 3px 0 0;align-self:end}
+.trend .c span{font-size:.62rem;color:var(--muted);text-align:center}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px}
 .kpi .v{font-family:var(--f-display);font-weight:800;font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -342,7 +363,7 @@ const nowHM=()=>{const d=new Date();return pad(d.getHours())+":"+pad(d.getMinute
 const S={db:null,auth:"loading",tel:"",isDir:false,acesso:null,lojaId:"",lojas:null,login:LOGIN_INICIAL(),
  loja:null,lojaOk:false,rotina:null,rotinaOk:false,
  dk:today(),day:null,dayOk:false,dayExists:false,
- tab:"hoje",filtro:"minhas",busca:"",pessoa:"",creating:{},ind:null,indLoading:false,names:{}};
+ tab:"hoje",filtro:"minhas",busca:"",dirView:"painel",painel:{dias:7,dados:null,dks:null,loading:false,em:""},pessoa:"",creating:{},ind:null,indLoading:false,names:{}};
 const unsub={};
 
 const membros=()=>Object.values((S.loja&&S.loja.membros)||{}).filter(m=>m&&m.ativo!==false);
@@ -727,13 +748,91 @@ function pedidosHtml(){
     S.pedidos.slice().sort((a,b)=>(a.em||"").localeCompare(b.em||"")).map(pd=>'<button class="li" data-act="pedido" data-id="'+esc(pd.id)+'" style="background:var(--warn-soft)"><div class="grow"><div class="t">'+esc(pd.nome||"Sem nome")+'</div><div class="s">'+esc([fmtId(pd.id),pd.loja,pd.funcao].filter(Boolean).join(" · "))+"</div></div>"+I.chev+"</button>").join("")+"</div></section>";
 }
 function viewLojas(){
-  let h='<div class="wrap"><div class="hero"><h1>Lojas BIN</h1><p>Escolha uma unidade para ver o checklist, a rotina, a equipe e os indicadores.</p></div>'+pedidosHtml();
+  const aba=S.dirView||"painel";
+  const topo='<div class="seg2" role="group" aria-label="Visão da diretoria"><button data-act="dirView" data-v="painel" aria-pressed="'+(aba==="painel")+'">Painel das lojas</button><button data-act="dirView" data-v="lojas" aria-pressed="'+(aba==="lojas")+'">Lojas e cadastros</button></div>';
+  if(aba==="painel")return'<div class="wrap largo"><div class="hero" style="padding-bottom:4px"><h1>Painel da diretoria</h1><p>Uso e desempenho do checklist em todas as lojas. Só a diretoria vê esta tela.</p></div>'+topo+pedidosHtml()+viewPainel()+'<div class="sec"><button class="btn block" data-act="sair">Sair ('+esc(fmtId(S.tel))+")</button></div></div>";
+  let h='<div class="wrap"><div class="hero"><h1>Lojas BIN</h1><p>Escolha uma unidade para ver o checklist, a rotina, a equipe e os indicadores.</p></div>'+topo+'<div style="height:12px"></div>'+pedidosHtml();
   if(!S.lojas)h+='<div class="loading">Carregando as lojas…</div>';
   else if(!S.lojas.length)h+='<div class="empty"><b>Nenhuma loja cadastrada</b>Crie a primeira unidade abaixo.</div>';
   else h+='<div class="list">'+S.lojas.slice().sort((a,b)=>(a.nome||"").localeCompare(b.nome||"")).map(l=>{const ms=Object.values(l.membros||{}).filter(m=>m&&m.ativo!==false);const g=ms.filter(m=>m.papel==="gerente").map(m=>m.nome);
     return'<button class="li" data-act="abrirLoja" data-id="'+esc(l.id)+'"><div class="grow"><div class="t">'+esc(l.nome||"Sem nome")+'</div><div class="s">'+esc((g.length?"Gerente: "+g.join(", "):"Sem gerente cadastrado")+" · "+ms.length+" pessoa(s)")+"</div></div>"+I.chev+"</button>"}).join("")+"</div>";
   h+='<section class="sec"><h2>Nova loja</h2><form class="card" data-form="novaLoja" style="display:grid;gap:14px"><div class="field"><label for="fNovaLoja">Lojas, uma por linha</label><textarea id="fNovaLoja" name="nomes" rows="5" required placeholder="PIMENTAS; Ana Souza; ana@outlook.com&#10;GUAIANASES"></textarea><span class="help">Só o nome cria a loja. Para já cadastrar o gerente, escreva na mesma linha: loja; nome do gerente; e-mail.</span></div><label class="toggle"><input type="checkbox" id="fNovaSug" name="sug" checked> Começar com o checklist sugerido no treinamento (18 atividades)</label><button class="btn primary block">Criar</button></form></section>';
   return h+'<div class="sec"><button class="btn block" data-act="sair">Sair ('+esc(fmtId(S.tel))+")</button></div></div>";
+}
+
+/* ---------- painel da diretoria ---------- */
+// Uso de um dia = pelo menos uma atividade marcada (realizada, parcial ou não realizada) naquele dia.
+async function carregarPainel(){
+  if(!S.lojas||S.painel.loading)return;
+  S.painel.loading=true;render();
+  const n=S.painel.dias,t=today(),dks=[];for(let i=n-1;i>=0;i--)dks.push(addDays(t,-i));
+  const lojas=S.lojas.slice();
+  try{
+    const pares=[];lojas.forEach(l=>dks.forEach(dk=>pares.push([l.id,dk])));
+    const res=[];
+    for(let i=0;i<pares.length;i+=40){
+      const lote=await Promise.all(pares.slice(i,i+40).map(([id,dk])=>getDoc(doc(FB.db,"lojas/"+id+"/dias/"+dk)).then(x=>x.exists()?x.data():null)));
+      res.push(...lote);
+    }
+    const dados={};let i=0;
+    lojas.forEach(l=>{dados[l.id]=dks.map(dk=>{const d=res[i++];const its=d?Object.values(d.itens||{}).filter(x=>x&&!x.removido):[];
+      const marc=its.filter(x=>x.st==="feito"||x.st==="nao"||x.st==="parcial");
+      return{dk,total:its.length,feito:its.filter(x=>x.st==="feito").length,nao:its.filter(x=>x.st==="nao").length,parcial:its.filter(x=>x.st==="parcial").length,
+        marc:marc.length,ultimo:marc.map(x=>x.em||"").sort().pop()||"",doDia:its.filter(x=>x.o==="dia"&&x.cd===dk).length}})});
+    S.painel.dados=dados;S.painel.dks=dks;S.painel.em=new Date().toISOString();
+  }catch(e){console.error(e);toast("Não foi possível carregar o painel. Confira a internet e tente de novo.")}
+  S.painel.loading=false;render();
+  const hw=$("#heatwrap");if(hw)hw.scrollLeft=hw.scrollWidth;
+}
+function resumoLoja(dias){
+  const comUso=dias.filter(d=>d.marc>0);
+  const tot=comUso.reduce((a,d)=>a+d.total,0),ok=comUso.reduce((a,d)=>a+d.feito,0);
+  const ultimo=dias.map(d=>d.ultimo).filter(Boolean).sort().pop()||"";
+  const diasSem=ultimo?Math.max(0,diffDias(dkOf(new Date(ultimo)),today())):null;
+  return{diasUso:comUso.length,pct:tot?Math.round(ok/tot*100):null,marc:dias.reduce((a,d)=>a+d.marc,0),
+    nao:dias.reduce((a,d)=>a+d.nao,0),parcial:dias.reduce((a,d)=>a+d.parcial,0),doDia:dias.reduce((a,d)=>a+d.doDia,0),ultimo,diasSem,hoje:dias[dias.length-1].marc>0};
+}
+function situacao(r,n){
+  if(!r.ultimo)return["bad","Sem uso"];
+  if(r.diasSem>=3)return["bad","Parada há "+r.diasSem+" dias"];
+  const q=r.diasUso/n;
+  if(q>=0.7)return["ok","Uso constante"];
+  if(q>=0.3)return["late","Uso irregular"];
+  return["bad","Pouco uso"];
+}
+function corPct(p){return p==null?"":"background:color-mix(in srgb,var(--ok) "+Math.max(12,p)+"%,var(--surface));color:"+(p>=55?"var(--surface)":"var(--ink)")}
+function viewPainel(){
+  if(!S.lojas)return'<div class="loading">Carregando as lojas…</div>';
+  if(!S.lojas.length)return'<div class="empty"><b>Nenhuma loja cadastrada</b>Crie as lojas em “Lojas e cadastros”.</div>';
+  const P=S.painel;
+  if(!P.dados||P.dias!==(P.dks||[]).length||Object.keys(P.dados).length!==S.lojas.length){if(!P.loading)setTimeout(carregarPainel,0);return'<div class="loading">Calculando o uso das lojas…</div>'}
+  const n=P.dias,dks=P.dks;
+  const lojas=S.lojas.map(l=>({l,dias:P.dados[l.id]||[],r:resumoLoja(P.dados[l.id]||[])})).sort((a,b)=>(b.r.pct==null?-1:b.r.pct)-(a.r.pct==null?-1:a.r.pct)||b.r.diasUso-a.r.diasUso);
+  const ativasHoje=lojas.filter(x=>x.r.hoje).length;
+  const comPct=lojas.filter(x=>x.r.pct!=null);const media=comPct.length?Math.round(comPct.reduce((a,x)=>a+x.r.pct,0)/comPct.length):null;
+  const marcTot=lojas.reduce((a,x)=>a+x.r.marc,0);const paradas=lojas.filter(x=>!x.r.ultimo||x.r.diasSem>=3).length;
+  let h='<div class="sec"><div class="chips" role="group" aria-label="Período" style="padding-bottom:0">'+[7,14,30].map(d=>'<button class="chip" data-act="painelDias" data-d="'+d+'" aria-pressed="'+(n===d)+'">Últimos '+d+" dias</button>").join("")+'<button class="chip" data-act="painelAtualizar">Atualizar</button></div>'+
+   '<p class="hint" style="margin:0">Atualizado às '+esc(fmtHora(P.em))+'. Um dia conta como “com uso” quando a loja marcou pelo menos uma atividade.</p></div>';
+  h+='<div class="kpis k4" style="margin-top:12px"><div class="kpi ok"><div class="v">'+ativasHoje+"/"+lojas.length+'</div><div class="l">lojas com uso hoje</div></div>'+
+   '<div class="kpi"><div class="v">'+(media==null?"–":media+"%")+'</div><div class="l">média realizada no período</div></div>'+
+   '<div class="kpi"><div class="v">'+marcTot+'</div><div class="l">atividades marcadas</div></div>'+
+   '<div class="kpi bad"><div class="v">'+paradas+'</div><div class="l">lojas paradas (3+ dias)</div></div></div>';
+  // mapa de calor
+  h+='<section class="sec"><h2>Uso por loja e por dia</h2><p class="hint">Cada quadrado mostra o percentual realizado da loja no dia. Cinza: nenhuma atividade marcada.</p><div class="card scroll-x" id="heatwrap"><table class="heat"><thead><tr><th class="loja"></th>'+
+   dks.map(dk=>'<th'+(dk===today()?' class="hoje"':"")+">"+DIAS[parseDk(dk).getDay()].slice(0,1)+"<br>"+esc(dk.slice(8))+"</th>").join("")+"</tr></thead><tbody>"+
+   lojas.map(x=>'<tr><th class="loja" title="'+esc(x.l.nome)+'">'+esc(x.l.nome||"Sem nome")+"</th>"+x.dias.map(d=>{
+     if(!d.marc)return'<td class="vazio" title="'+esc(x.l.nome+" · "+dm(d.dk))+': sem uso">·</td>';
+     const p=d.total?Math.round(d.feito/d.total*100):0;
+     return'<td style="'+corPct(p)+'" title="'+esc(x.l.nome+" · "+dm(d.dk)+": "+d.feito+" de "+d.total+" realizadas"+(d.parcial?", "+d.parcial+" parciais":"")+(d.nao?", "+d.nao+" não realizadas":""))+'">'+p+"</td>"}).join("")+"</tr>").join("")+
+   '</tbody></table><div class="heatleg"><span>Realizado:</span><i style="'+corPct(15)+'"></i>baixo<i style="'+corPct(50)+'"></i>médio<i style="'+corPct(100)+'"></i>alto<i style="background:var(--sunk)"></i>sem uso</div></div></section>';
+  // evolução geral
+  const porDia=dks.map((dk,i)=>{const ds=lojas.map(x=>x.dias[i]).filter(d=>d&&d.marc);return{dk,lojas:ds.length}});
+  h+='<section class="sec"><h2>Lojas usando o app por dia</h2><div class="card"><div class="trend" role="img" aria-label="Quantidade de lojas com uso em cada dia">'+porDia.map(d=>'<div class="c" title="'+esc(dm(d.dk))+": "+d.lojas+" de "+lojas.length+' lojas"><i style="height:'+(lojas.length?d.lojas/lojas.length*100:0)+'%"></i><span>'+d.lojas+"<br>"+esc(d.dk.slice(8))+"</span></div>").join("")+"</div></div></section>";
+  // comparativo
+  h+='<section class="sec"><h2>Comparativo das lojas</h2><p class="hint">Ordenado pelo percentual realizado nos dias com uso. Toque no nome para abrir a loja.</p><div class="card scroll-x"><table class="ptable rank"><thead><tr><th>Loja</th><th>Realizado</th><th>Dias com uso</th><th>Marcadas</th><th>Parciais</th><th>Não real.</th><th>Tarefas do dia</th><th>Último uso</th><th>Situação</th></tr></thead><tbody>'+
+   lojas.map(x=>{const r=x.r,[cls,txt]=situacao(r,n);
+     return'<tr><td class="loja"><button data-act="abrirLoja" data-id="'+esc(x.l.id)+'">'+esc(x.l.nome||"Sem nome")+"</button></td><td>"+(r.pct==null?"–":r.pct+'%<span class="bar"><i class="b-ok" style="width:'+r.pct+'%"></i></span>')+"</td><td>"+r.diasUso+"/"+n+"</td><td>"+(r.marc||"–")+"</td><td>"+(r.parcial||"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.doDia||"–")+"</td><td>"+(r.ultimo?esc(dm(dkOf(new Date(r.ultimo)))+" "+fmtHora(r.ultimo)):"–")+'</td><td><span class="pill '+cls+'">'+esc(txt)+"</span></td></tr>"}).join("")+"</tbody></table></div></section>";
+  return h;
 }
 
 /* ---------- sheets ---------- */
@@ -984,6 +1083,9 @@ const acts={
   sairPreview(){closeSheet();S.verComo=null;S.tab=S.tabDir||"hoje";S.filtro="todas";S.ind=null;render();maybeCreateToday();scrollTo(0,0)},
   lojas(){closeSheet();fecharLoja();S.lojaId="";try{localStorage.removeItem("rotina-loja")}catch(e){}render();scrollTo(0,0)},
   abrirLoja(el){abrirLoja(el.dataset.id);scrollTo(0,0)},
+  dirView(el){S.dirView=el.dataset.v;render();scrollTo(0,0)},
+  painelDias(el){S.painel.dias=Number(el.dataset.d);S.painel.dados=null;carregarPainel()},
+  painelAtualizar(){S.painel.dados=null;carregarPainel()},
   sair(){closeSheet();salvarEquipe(null);signOut(FB.auth)},
   entrarEquipe(){
     const k=($("#fEqPessoa")||{}).value,pin=(($("#fEqPin")||{}).value||"").trim();
@@ -1304,8 +1406,7 @@ async function aoEntrar(u){
   if(S.isDir){
     unsub.lojas=onSnapshot(collection(FB.db,"lojas"),q=>{S.lojas=q.docs.map(d=>Object.assign({id:d.id},d.data()));render()},dbErr);
     unsub.pedidos=onSnapshot(collection(FB.db,"pedidos"),q=>{S.pedidos=q.docs.map(d=>Object.assign({id:d.id},d.data()));render()},e=>console.error(e));
-    let ult="";try{ult=localStorage.getItem("rotina-loja")||""}catch(e){}
-    if(ult)abrirLoja(ult);else render();
+    render();
   }else if(S.acesso&&S.acesso.ativo!==false&&S.acesso.lojaId){
     abrirLoja(S.acesso.lojaId);
   }else{
