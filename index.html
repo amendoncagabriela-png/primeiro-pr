@@ -108,6 +108,10 @@ ul.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .task .det svg{width:19px;height:19px}
 .detbox{white-space:pre-line;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.95rem;overflow-wrap:anywhere}
 .bar .b-warn{background:var(--warn)}
+.aviso{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;background:var(--warn-soft);border-radius:12px;padding:12px}
+.aviso>svg{width:28px;height:28px;color:var(--warn)}
+.alertmark{color:var(--warn);font-weight:700}
+.fechado{background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:.9rem;color:var(--muted)}
 .task .more{width:36px;height:40px;border:0;background:none;color:var(--muted);display:grid;place-items:center;border-radius:8px}
 .task .more svg{width:20px;height:20px}
 
@@ -520,6 +524,35 @@ function render0(){
   app.innerHTML={hoje:viewHoje,equipe:viewEquipe,rotina:viewRotina,loja:viewLoja}[S.tab]();
 }
 
+/* Trava do dia: só se marca o dia de hoje. A diretoria pode corrigir dias anteriores. */
+const podeMarcarDia=()=>S.dk===today()||(S.dk<today()&&papelReal()==="diretoria"&&!S.equipe&&!S.verComo);
+/* Avisos de marcação apressada: tarefa marcada logo após ser criada, ou várias marcadas em sequência. */
+const CRIADA_MIN=5*60e3,LOTE_JANELA=3*60e3,LOTE_QTD=4;
+function criadaEm(it){return it.ct?Date.parse(it.ct):(it.o==="dia"&&it.ord>1e12?it.ord:0)}
+function alertaMarcacao(it){
+  const agora=Date.now(),c=criadaEm(it);
+  if(c&&agora-c<CRIADA_MIN)return"rapida";
+  const ls=((S.marcas||{})[meuKey()]||[]).filter(t=>agora-t<LOTE_JANELA);
+  if(ls.length>=LOTE_QTD-1)return"lote";
+  return"";
+}
+function registrarMarca(){const k=meuKey(),agora=Date.now();S.marcas=S.marcas||{};S.marcas[k]=((S.marcas[k]||[]).filter(t=>agora-t<LOTE_JANELA)).concat(agora)}
+function marcarFeito(id){
+  const it=(itensDoDia()||{})[id];if(!it)return;
+  if(!podeMarcarDia()){avisoDiaFechado();return}
+  const al=alertaMarcacao(it);
+  const go=()=>{registrarMarca();patchItem(id,{st:"feito",pm:meuKey(),em:new Date().toISOString(),motivo:null,pend:null,cont:null,al:al||null})};
+  if(!al){go();return}
+  S._confirma=go;
+  const n=((S.marcas||{})[meuKey()]||[]).filter(t=>Date.now()-t<LOTE_JANELA).length;
+  const txt=al==="rapida"
+    ?'<p style="margin:0"><b>“'+esc(it.t)+'”</b> foi criada há poucos minutos.</p><p style="margin:0">O checklist serve para registrar cada atividade no momento em que ela é concluída, ao longo do dia. Ela foi realmente concluída agora?</p>'
+    :'<p style="margin:0">Você marcou <b>'+n+' atividades nos últimos 3 minutos</b>.</p><p style="margin:0">O ideal é marcar cada atividade assim que ela for concluída, ao longo do dia, e não todas de uma vez. Esta também foi concluída agora?</p>';
+  openSheet(al==="rapida"?"Tarefa recém-criada":"Várias marcações seguidas",'<div class="aviso">'+I.alerta+'<div style="display:grid;gap:8px">'+txt+'<p class="help" style="margin:0;font-size:.82rem;color:var(--muted)">Se confirmar, a marcação fica registrada com este aviso e aparece para a diretoria.</p></div></div><button class="btn ok block" data-act="confirmaMarca">Sim, foi concluída agora</button><button class="btn block" data-act="fechar">Ainda não, voltar</button>',{tipo:"alerta",id});
+}
+function avisoDiaFechado(){
+  toast(S.dk<today()?"O dia "+dm(S.dk)+" já foi encerrado. Não é possível marcar atividades de dias anteriores.":"Este dia ainda não começou. As atividades só podem ser marcadas no próprio dia.");
+}
 function statusOf(it){
   if(it.st==="feito")return"feito";
   if(it.st==="nao")return"nao";
@@ -608,8 +641,9 @@ function taskHtml(it){
   if(st==="parcial")pills.push('<span class="pill late">Parcialmente realizada</span>');
   const au=autorTxt(it);
   let by=au?'<div class="autor">'+esc(au)+"</div>":"";
-  if((it.st==="feito"||it.st==="nao"||it.st==="parcial")&&it.em)by+='<div class="by">'+(it.st==="feito"?"Realizada":"Marcada")+" por "+esc(nomeDe(it.pm))+" às "+esc(fmtHora(it.em))+"</div>";
-  const canMark=S.dk<=today();
+  if((it.st==="feito"||it.st==="nao"||it.st==="parcial")&&it.em)by+='<div class="by">'+(it.st==="feito"?"Realizada":"Marcada")+" por "+esc(nomeDe(it.pm))+" às "+esc(fmtHora(it.em))+
+    (it.st==="feito"&&it.al&&isGestor()?' <span class="alertmark">· '+(it.al==="rapida"?"marcada logo após ser criada":"marcada em sequência")+"</span>":"")+"</div>";
+  const canMark=podeMarcarDia();
   return'<li class="task st-'+esc(it.st||"pendente")+(isCriada(it)?" t-nova":it.o==="dia"?" t-dia":"")+'">'+
    '<button class="check" data-act="toggle" data-id="'+esc(it.id)+'" aria-label="'+(it.st==="feito"?"Desmarcar":"Marcar como realizada")+'"'+(canMark?"":" disabled")+">"+(it.st==="nao"?I.x:it.st==="parcial"?I.meio:I.check)+"</button>"+
    '<button class="tb" data-act="item" data-id="'+esc(it.id)+'"><div class="ttl">'+esc(it.t)+'</div><div class="meta">'+pills.join("")+"</div>"+
@@ -778,7 +812,7 @@ async function carregarPainel(){
     lojas.forEach(l=>{dados[l.id]=dks.map(dk=>{const d=res[i++];const its=d?Object.values(d.itens||{}).filter(x=>x&&!x.removido):[];
       const marc=its.filter(x=>x.st==="feito"||x.st==="nao"||x.st==="parcial");
       return{dk,total:its.length,feito:its.filter(x=>x.st==="feito").length,nao:its.filter(x=>x.st==="nao").length,parcial:its.filter(x=>x.st==="parcial").length,
-        marc:marc.length,ultimo:marc.map(x=>x.em||"").sort().pop()||"",doDia:its.filter(x=>x.o==="dia"&&x.cd===dk).length}})});
+        marc:marc.length,ultimo:marc.map(x=>x.em||"").sort().pop()||"",doDia:its.filter(x=>x.o==="dia"&&x.cd===dk).length,al:its.filter(x=>x.st==="feito"&&x.al).length}})});
     S.painel.dados=dados;S.painel.dks=dks;S.painel.em=new Date().toISOString();
   }catch(e){console.error(e);toast("Não foi possível carregar o painel. Confira a internet e tente de novo.")}
   S.painel.loading=false;render();
@@ -790,7 +824,7 @@ function resumoLoja(dias){
   const ultimo=dias.map(d=>d.ultimo).filter(Boolean).sort().pop()||"";
   const diasSem=ultimo?Math.max(0,diffDias(dkOf(new Date(ultimo)),today())):null;
   return{diasUso:comUso.length,pct:tot?Math.round(ok/tot*100):null,marc:dias.reduce((a,d)=>a+d.marc,0),
-    nao:dias.reduce((a,d)=>a+d.nao,0),parcial:dias.reduce((a,d)=>a+d.parcial,0),doDia:dias.reduce((a,d)=>a+d.doDia,0),ultimo,diasSem,hoje:dias[dias.length-1].marc>0};
+    nao:dias.reduce((a,d)=>a+d.nao,0),parcial:dias.reduce((a,d)=>a+d.parcial,0),doDia:dias.reduce((a,d)=>a+d.doDia,0),al:dias.reduce((a,d)=>a+(d.al||0),0),ultimo,diasSem,hoje:dias[dias.length-1].marc>0};
 }
 function situacao(r,n){
   if(!r.ultimo)return["bad","Sem uso"];
@@ -829,9 +863,9 @@ function viewPainel(){
   const porDia=dks.map((dk,i)=>{const ds=lojas.map(x=>x.dias[i]).filter(d=>d&&d.marc);return{dk,lojas:ds.length}});
   h+='<section class="sec"><h2>Lojas usando o app por dia</h2><div class="card"><div class="trend" role="img" aria-label="Quantidade de lojas com uso em cada dia">'+porDia.map(d=>'<div class="c" title="'+esc(dm(d.dk))+": "+d.lojas+" de "+lojas.length+' lojas"><i style="height:'+(lojas.length?d.lojas/lojas.length*100:0)+'%"></i><span>'+d.lojas+"<br>"+esc(d.dk.slice(8))+"</span></div>").join("")+"</div></div></section>";
   // comparativo
-  h+='<section class="sec"><h2>Comparativo das lojas</h2><p class="hint">Ordenado pelo percentual realizado nos dias com uso. Toque no nome para abrir a loja.</p><div class="card scroll-x"><table class="ptable rank"><thead><tr><th>Loja</th><th>Realizado</th><th>Dias com uso</th><th>Marcadas</th><th>Parciais</th><th>Não real.</th><th>Tarefas do dia</th><th>Último uso</th><th>Situação</th></tr></thead><tbody>'+
+  h+='<section class="sec"><h2>Comparativo das lojas</h2><p class="hint">Ordenado pelo percentual realizado nos dias com uso. “Com aviso” conta as atividades marcadas logo após serem criadas ou várias de uma vez, em sequência. Toque no nome para abrir a loja.</p><div class="card scroll-x"><table class="ptable rank"><thead><tr><th>Loja</th><th>Realizado</th><th>Dias com uso</th><th>Marcadas</th><th title="Marcadas logo após serem criadas ou várias em sequência">Com aviso</th><th>Parciais</th><th>Não real.</th><th>Tarefas do dia</th><th>Último uso</th><th>Situação</th></tr></thead><tbody>'+
    lojas.map(x=>{const r=x.r,[cls,txt]=situacao(r,n);
-     return'<tr><td class="loja"><button data-act="abrirLoja" data-id="'+esc(x.l.id)+'">'+esc(x.l.nome||"Sem nome")+"</button></td><td>"+(r.pct==null?"–":r.pct+'%<span class="bar"><i class="b-ok" style="width:'+r.pct+'%"></i></span>')+"</td><td>"+r.diasUso+"/"+n+"</td><td>"+(r.marc||"–")+"</td><td>"+(r.parcial||"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.doDia||"–")+"</td><td>"+(r.ultimo?esc(dm(dkOf(new Date(r.ultimo)))+" "+fmtHora(r.ultimo)):"–")+'</td><td><span class="pill '+cls+'">'+esc(txt)+"</span></td></tr>"}).join("")+"</tbody></table></div></section>";
+     return'<tr><td class="loja"><button data-act="abrirLoja" data-id="'+esc(x.l.id)+'">'+esc(x.l.nome||"Sem nome")+"</button></td><td>"+(r.pct==null?"–":r.pct+'%<span class="bar"><i class="b-ok" style="width:'+r.pct+'%"></i></span>')+"</td><td>"+r.diasUso+"/"+n+"</td><td>"+(r.marc||"–")+"</td><td>"+(r.al?'<span class="alertmark">'+r.al+(r.marc?" ("+Math.round(r.al/r.marc*100)+"%)":"")+"</span>":"–")+"</td><td>"+(r.parcial||"–")+"</td><td>"+(r.nao||"–")+"</td><td>"+(r.doDia||"–")+"</td><td>"+(r.ultimo?esc(dm(dkOf(new Date(r.ultimo)))+" "+fmtHora(r.ultimo)):"–")+'</td><td><span class="pill '+cls+'">'+esc(txt)+"</span></td></tr>"}).join("")+"</tbody></table></div></section>";
   return h;
 }
 
@@ -911,7 +945,8 @@ function sheetItem(id){
   const gestor=isGestor(),past=S.dk>today();
   let h='<div style="display:grid;gap:6px"><div class="ttl" style="font-weight:700;font-size:1.05rem">'+esc(it.t)+'</div><div class="meta">'+respsDe(it).map(k=>'<span class="pill who">'+esc(nomeDe(k))+"</span>").join("")+'<span class="pill">'+esc(MOM_CURTO[it.m||"dia"])+"</span>"+(it.h?'<span class="pill">até '+esc(it.h)+"</span>":"")+(it.o==="rotina"?'<span class="pill kraft">Rotina</span>':"")+"</div>"+(autorTxt(it)?'<div class="autor">'+esc(autorTxt(it))+"</div>":"")+(it.ev?'<div class="ev"><b>Concluída quando:</b> '+esc(it.ev)+"</div>":"")+(it.det?'<div class="detbox">'+esc(it.det)+"</div>":"")+
    (it.st==="parcial"&&it.pend?'<div class="pend"><b>Ficou pendente:</b> '+esc(it.pend)+(it.cont?" · continua em "+esc(dm(it.cont)):"")+"</div>":"")+"</div>";
-  if(!past){
+  if(S.dk<today()&&!podeMarcarDia())h+='<div class="fechado">Dia encerrado. Atividades de dias anteriores não podem mais ser marcadas.</div>';
+  if(podeMarcarDia()){
     h+='<div class="row">'+(it.st!=="feito"?'<button class="btn ok" data-act="marcar" data-st="feito">'+I.check+"Realizada</button>":"")+(it.st!=="pendente"&&it.st?'<button class="btn" data-act="marcar" data-st="pendente">Reabrir</button>':"")+"</div>";
     if(it.st!=="parcial")h+='<form data-form="parcial" style="display:grid;gap:8px"><div class="field"><label for="fPend">Parcialmente realizada? Diga o que ficou pendente</label><textarea id="fPend" name="pend" maxlength="300" rows="2" required placeholder="Ex.: faltou repor o corredor 3"></textarea></div><label class="toggle"><input type="checkbox" id="fCont" name="cont"> Continuar a atividade em outra data</label><div class="field" id="contBox" hidden><label for="fContData">Continuar em</label><input type="date" id="fContData" name="contData" min="'+esc(addDays(S.dk,1))+'" value="'+esc(addDays(S.dk,1))+'"><span class="help">A parte pendente vira uma tarefa nesse dia, com os mesmos responsáveis.</span></div><button class="btn block" style="border-color:var(--warn);color:var(--warn)">Marcar como parcialmente realizada</button></form>';
     if(it.st!=="nao")h+='<form data-form="nao" style="display:grid;gap:8px"><div class="field"><label for="fMot">Não foi realizada? Diga o motivo</label><input type="text" id="fMot" name="motivo" maxlength="160" required placeholder="Ex.: falta de funcionário, sistema fora do ar"></div><button class="btn danger">Marcar como não realizada</button></form>';
@@ -970,11 +1005,12 @@ const acts={
   filtro(el){S.filtro=el.dataset.f;S.pessoa="";render()},
   toggle(el){
     const id=el.dataset.id,it=(itensDoDia()||{})[id];if(!it)return;
-    if(S.dk>today())return;
-    const novo=it.st==="feito"?"pendente":"feito";
+    if(!podeMarcarDia()){avisoDiaFechado();return}
     if(it.st==="nao"||it.st==="parcial"){sheetItem(id);return}
-    patchItem(id,{st:novo,pm:novo==="feito"?meuKey():null,em:novo==="feito"?new Date().toISOString():null,motivo:null,pend:null,cont:null});
+    if(it.st==="feito"){patchItem(id,{st:"pendente",pm:null,em:null,motivo:null,pend:null,cont:null,al:null});return}
+    marcarFeito(id);
   },
+  confirmaMarca(){const go=S._confirma;S._confirma=null;closeSheet();if(go)go()},
   item(el){sheetItem(el.dataset.id)},
   det(el){
     const id=el.dataset.id,it=(itensDoDia()||{})[id];if(!it)return;
@@ -982,7 +1018,9 @@ const acts={
   },
   marcar(el){
     const id=sheetCtx.id,st=el.dataset.st;
-    patchItem(id,{st,pm:st==="pendente"?null:meuKey(),em:st==="pendente"?null:new Date().toISOString(),motivo:null,pend:null,cont:null});closeSheet();
+    if(!podeMarcarDia()){closeSheet();avisoDiaFechado();return}
+    if(st==="feito"){closeSheet();marcarFeito(id);return}
+    patchItem(id,{st,pm:st==="pendente"?null:meuKey(),em:st==="pendente"?null:new Date().toISOString(),motivo:null,pend:null,cont:null,al:null});closeSheet();
   },
   removerItem(){
     const id=sheetCtx.id;closeSheet();
@@ -1140,11 +1178,11 @@ const forms={
       rot.r=r;if(rot.r2===r)rot.r2="";
       const cp=meuKey();
       rotinaWrite({[rid]:Object.assign(rot,{area,ord:Date.now(),criada,cp})});
-      patchItem("r_"+rid,Object.assign(it,{area,o:"rotina",rid,rc:criada,cp,st:"pendente",ord:Date.now()}));
+      patchItem("r_"+rid,Object.assign(it,{area,o:"rotina",rid,rc:criada,cp,st:"pendente",ord:Date.now(),ct:new Date().toISOString()}));
       closeSheet();toast("Tarefa criada e salva como rotina: "+repTxt(rot)+".");return;
     }
     const id=gid("d_");
-    patchItem(id,Object.assign(it,{area:(sheetCtx&&sheetCtx.area)||"",o:"dia",st:"pendente",ord:Date.now(),cp:meuKey(),cd:today()}));
+    patchItem(id,Object.assign(it,{area:(sheetCtx&&sheetCtx.area)||"",o:"dia",st:"pendente",ord:Date.now(),cp:meuKey(),cd:today(),ct:new Date().toISOString()}));
     closeSheet();toast("Tarefa direcionada para "+nomeDe(v.r)+".");
   },
   rotina(f){
@@ -1159,10 +1197,12 @@ const forms={
   },
   nao(f){
     const motivo=(new FormData(f).get("motivo")||"").trim();if(!motivo)return;
+    if(!podeMarcarDia()){closeSheet();avisoDiaFechado();return}
     patchItem(sheetCtx.id,{st:"nao",motivo,pm:meuKey(),em:new Date().toISOString(),pend:null,cont:null});closeSheet();
   },
   parcial(f){
     const fd=new FormData(f),pend=(fd.get("pend")||"").trim();if(!pend)return;
+    if(!podeMarcarDia()){closeSheet();avisoDiaFechado();return}
     const id=sheetCtx.id,it=(itensDoDia()||{})[id];if(!it)return;
     const dest=fd.get("cont")?(fd.get("contData")||""):"";
     if(fd.get("cont")&&(!dest||dest<=S.dk)){toast("Escolha uma data depois de "+dm(S.dk)+".");return}
@@ -1171,7 +1211,7 @@ const forms={
     if(!dest)return;
     const nid=gid("c_");
     const nova={t:it.t,m:it.m||"dia",r:it.r,r2:it.r2||"",h:it.h||"",ev:it.ev||"",p:!!it.p,area:it.area||"",
-      det:"Pendente de "+dm(origem)+": "+pend+(it.det?"\n\n"+it.det:""),o:"dia",st:"pendente",ord:Date.now(),cp:meuKey(),cd:today(),orig:origem,origId:id};
+      det:"Pendente de "+dm(origem)+": "+pend+(it.det?"\n\n"+it.det:""),o:"dia",st:"pendente",ord:Date.now(),cp:meuKey(),cd:today(),ct:new Date().toISOString(),orig:origem,origId:id};
     grava("dias/"+dest,async()=>{await ensureDay(dest);await dayRef(dest).update({itens:{[nid]:nova}})})
       .then(ok=>ok&&toast("Parte pendente agendada para "+fmtDia(dest)+"."));
   },

@@ -14,6 +14,12 @@ service cloud.firestore {
         ? request.auth.token.phone_number
         : (request.auth.token.get('email_verified', false) == true ? request.auth.token.email.lower() : null);
     }
+    // Data de hoje no horário de Brasília (UTC-3), no formato AAAA-MM-DD.
+    function dois(n) { return n < 10 ? '0' + string(n) : string(n); }
+    function hojeBR() {
+      let t = request.time - duration.value(3, 'h');
+      return string(t.year()) + '-' + dois(t.month()) + '-' + dois(t.day());
+    }
     function logado() { return request.auth != null && tel() != null; }
     function isDir() { return logado() && exists(/databases/$(database)/documents/admins/$(tel())); }
     function temAcesso() { return logado() && exists(/databases/$(database)/documents/acessos/$(tel())); }
@@ -56,8 +62,11 @@ service cloud.firestore {
         allow read: if daLoja(l);
         allow write: if gerenteDe(l);
       }
+      // Trava do dia: gerente e colaborador só alteram o dia de hoje ou dias futuros
+      // (planejamento). Dias anteriores ficam fechados; só a diretoria corrige.
       match /dias/{dia} {
-        allow read, write: if daLoja(l);
+        allow read: if daLoja(l);
+        allow write: if isDir() || (daLoja(l) && dia >= hojeBR());
       }
     }
   }

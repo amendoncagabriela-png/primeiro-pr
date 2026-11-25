@@ -37,6 +37,11 @@ O login é por e-mail (link de acesso, sem senha, qualquer provedor) ou pela con
 3. Cada pessoa abre o endereço do app, digita o e-mail e toca no link que recebe (no mesmo aparelho), ou entra com a conta Google.
 4. Quem entra com um e-mail ainda não cadastrado preenche nome, loja e função e envia um **pedido de acesso**. A diretoria vê os pedidos na tela **Lojas BIN**, escolhe a loja e o papel e libera (ou recusa). A pessoa entra na loja assim que for liberada.
 
+## Regras de uso do checklist
+
+- **Trava do dia:** gerentes e colaboradores só marcam atividades do dia de hoje. Dias anteriores ficam fechados (na tela e nas regras do banco); só a diretoria corrige. Dias futuros continuam abertos para planejamento.
+- **Avisos de marcação apressada:** o app pede confirmação quando uma tarefa é marcada como realizada até 5 minutos depois de criada, ou quando a mesma pessoa marca 4 ou mais atividades em 3 minutos. Se confirmada, a marcação fica sinalizada (campo `al`) e aparece para o gerente e na coluna “Com aviso” do painel da diretoria.
+
 ## Estrutura dos dados
 
 - `admins/{celular ou e-mail}`: diretoria (cadastrada só pelo console).
